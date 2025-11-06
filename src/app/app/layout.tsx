@@ -2,6 +2,7 @@
 
 import { ReactNode, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, 
@@ -41,26 +42,24 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <AppBridgeProvider>
           <ToastProvider>
             <ModalProvider>
-              <div className="flex h-screen bg-gray-50">
+              <div className="flex h-screen bg-gray-100">
                 {/* Sidebar - Desktop */}
                 <aside className="hidden lg:flex lg:flex-shrink-0">
-                  <div className="flex flex-col w-64">
-                    <div className="flex flex-col flex-grow bg-white border-r border-gray-200 pt-5 pb-4 overflow-y-auto">
+                  <div className="flex flex-col w-68">
+                    <div className="flex flex-col flex-grow bg-white/95 border-r border-gray-100 shadow-[inset_-1px_0_0_rgba(15,23,42,0.08)] pt-6 pb-6 overflow-y-auto backdrop-blur">
                       {/* Logo */}
                       <div className="flex items-center flex-shrink-0 px-4 mb-8">
-                        <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                            <FolderKanban className="w-6 h-6 text-white" />
-                          </div>
-                          <div>
-                            <span className="text-lg font-bold text-gray-900 block">SEO DROME</span>
-                            <span className="text-xs text-gray-500 uppercase tracking-wide">TEAM</span>
-                          </div>
-                        </div>
+                        <Image 
+                          src="/branding/logo-word.svg" 
+                          alt="SEO Drome Team" 
+                          width={160}
+                          height={40}
+                          priority
+                        />
                       </div>
 
                       {/* Navigation */}
-                      <nav className="flex-1 px-3 space-y-1">
+                      <nav className="flex-1 px-3 space-y-2">
                         {navigation.map((item) => {
                           const isActive = pathname === item.href || 
                             (item.href !== '/app' && pathname?.startsWith(item.href))
@@ -71,10 +70,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                               key={item.name}
                               href={item.href}
                               className={clsx(
-                                'group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200',
+                                'group flex items-center px-3.5 py-3 text-sm font-medium rounded-xl transition-all duration-200 border border-transparent',
                                 isActive
-                                  ? 'bg-blue-50 text-blue-700 shadow-sm'
-                                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-100 shadow-md shadow-blue-100/60'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 hover:border-gray-100'
                               )}
                             >
                               <Icon className={clsx(
@@ -82,9 +81,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                                 isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
                               )} />
                               {item.name}
-                              {isActive && (
-                                <ChevronRight className="ml-auto h-4 w-4 text-blue-600" />
-                              )}
+                              <ChevronRight
+                                className={clsx(
+                                  'ml-auto h-4 w-4 transition-all',
+                                  isActive ? 'text-blue-500 opacity-100' : 'text-gray-300 opacity-0 group-hover:opacity-100'
+                                )}
+                              />
                             </Link>
                           )
                         })}
@@ -106,17 +108,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                           <X className="h-6 w-6 text-white" />
                         </button>
                       </div>
-                      <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
+                      <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto bg-white">
                         <div className="flex items-center flex-shrink-0 px-4 mb-8">
-                          <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                              <FolderKanban className="w-6 h-6 text-white" />
-                            </div>
-                            <div>
-                              <span className="text-lg font-bold text-gray-900 block">SEO DROME</span>
-                              <span className="text-xs text-gray-500 uppercase tracking-wide">TEAM</span>
-                            </div>
-                          </div>
+                          <Image 
+                            src="/branding/logo-word.svg" 
+                            alt="SEO Drome Team" 
+                            width={150}
+                            height={36}
+                          />
                         </div>
                         <nav className="px-3 space-y-1">
                           {navigation.map((item) => {
@@ -162,7 +161,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                       <Menu className="h-6 w-6" />
                     </button>
                     <div className="flex-1 px-4 flex justify-between items-center">
-                      <div className="flex-1 flex">
+                      <div className="flex-1 flex items-center gap-2">
+                        <Image 
+                          src="/branding/logo-mark.svg" 
+                          alt="SEO Drome Mark" 
+                          width={28}
+                          height={28}
+                          className="hidden sm:block"
+                        />
                         <h1 className="text-lg font-semibold text-gray-900">
                           {navigation.find(item => 
                             pathname === item.href || 

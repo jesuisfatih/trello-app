@@ -124,51 +124,45 @@ export default function BoardDetailPage({ params }: PageProps) {
     )
   }
 
-  const bgGradient = board.prefs?.backgroundColor || '#0079BF'
-
   return (
-    <div className="min-h-screen -m-6 -mt-6" style={{ background: `linear-gradient(135deg, ${bgGradient} 0%, ${bgGradient}dd 100%)` }}>
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-black/10 backdrop-blur-sm border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/app/boards">
-                <button className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-                  <ArrowLeft className="h-5 w-5 text-white" />
-                </button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-white drop-shadow-lg">
-                  {board.name}
-                </h1>
-                {board.desc && (
-                  <p className="text-white/80 text-sm mt-1">{board.desc}</p>
-                )}
-              </div>
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm px-6 py-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/app/boards">
+              <button className="p-2 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors text-gray-600">
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">{board.name}</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Trello board ID: <span className="font-mono text-xs text-gray-400">{board.id}</span>
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <a 
-                href={board.url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Open in Trello
-              </a>
-            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a 
+              href={board.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="px-4 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+            >
+              Open in Trello
+            </a>
           </div>
         </div>
       </div>
 
       {/* Kanban Board */}
-      <div className="p-6 overflow-x-auto">
+      <div className="overflow-x-auto pb-6">
         <div className="flex gap-4 min-w-max">
           {lists.map((list) => (
             <div key={list.id} className="flex-shrink-0 w-80">
-              <div className="bg-gray-100 rounded-xl shadow-sm">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                 {/* List Header */}
-                <div className="px-4 py-3 border-b border-gray-200 bg-white rounded-t-xl">
+                <div className="px-4 py-3 border-b border-gray-200 rounded-t-xl bg-gray-50">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">{list.name}</h3>
                     <div className="flex items-center gap-2">
@@ -183,11 +177,11 @@ export default function BoardDetailPage({ params }: PageProps) {
                 </div>
 
                 {/* Cards Container */}
-                <div className="p-3 space-y-2 max-h-[calc(100vh-280px)] overflow-y-auto">
+                <div className="p-3 space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto">
                   {cards[list.id]?.map((card: any) => (
                     <div
                       key={card.id}
-                      className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 border border-gray-200 hover:border-gray-300"
+                      className="group bg-white p-4 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 border border-gray-200 hover:border-blue-200"
                     >
                       {/* Card Labels */}
                       {card.labels && card.labels.length > 0 && (
@@ -244,7 +238,7 @@ export default function BoardDetailPage({ params }: PageProps) {
 
                 {/* Add Card Button */}
                 <div className="px-3 pb-3">
-                  <button className="w-full px-3 py-2 text-sm text-gray-600 hover:bg-white/50 rounded-lg flex items-center gap-2 transition-colors">
+                  <button className="w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors border border-dashed border-gray-300">
                     <Plus className="h-4 w-4" />
                     Add a card
                   </button>
@@ -255,10 +249,12 @@ export default function BoardDetailPage({ params }: PageProps) {
 
           {/* Add List Button */}
           <div className="flex-shrink-0 w-80">
-            <button className="w-full p-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-xl text-white font-medium flex items-center gap-2 justify-center transition-colors">
-              <Plus className="h-5 w-5" />
-              Add another list
-            </button>
+            <div className="bg-white border border-dashed border-gray-300 rounded-xl h-full flex items-center justify-center">
+              <button className="px-4 py-3 text-sm text-gray-600 hover:text-blue-600 flex items-center gap-2 transition-colors">
+                <Plus className="h-5 w-5" />
+                Add another list
+              </button>
+            </div>
           </div>
         </div>
       </div>
