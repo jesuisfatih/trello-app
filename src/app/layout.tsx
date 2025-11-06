@@ -1,19 +1,14 @@
-import type { Metadata } from 'next'
+'use client'
 
 // MUI Imports
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
+import { createTheme, ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 
 // CSS Imports
 import './globals.css'
 
-export const metadata: Metadata = {
-  title: 'ShopiTrello - Shopify × Trello Integration',
-  description: 'Seamless Shopify and Trello integration for automated workflow management',
-}
-
-// Simple MUI theme - Server Component safe
+// Simple MUI theme
 const muiTheme = createTheme({
   palette: {
     mode: 'light',
