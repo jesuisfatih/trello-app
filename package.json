@@ -37,6 +37,8 @@
     "react-dom": "^19.2.0",
     "react-perfect-scrollbar": "^1.5.8",
     "classnames": "^2.5.1",
+    "cmdk": "^1.0.0",
+    "@radix-ui/react-dialog": "^1.1.2",
     "oauth-1.0a": "^2.2.6",
     "crypto-js": "^4.2.0",
     "zod": "^3.24.1",
