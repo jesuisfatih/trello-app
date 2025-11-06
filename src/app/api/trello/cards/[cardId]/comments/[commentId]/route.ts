@@ -23,9 +23,10 @@ async function getShopFromRequest(request: NextRequest) {
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { cardId: string; commentId: string } }
+  context: { params: Promise<{ cardId: string; commentId: string }> }
 ) {
   try {
+    const params = await context.params;
     const shop = await getShopFromRequest(request);
     
     if (!shop || !shop.trelloConnections[0]) {
@@ -59,9 +60,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { cardId: string; commentId: string } }
+  context: { params: Promise<{ cardId: string; commentId: string }> }
 ) {
   try {
+    const params = await context.params;
     const shop = await getShopFromRequest(request);
     
     if (!shop || !shop.trelloConnections[0]) {

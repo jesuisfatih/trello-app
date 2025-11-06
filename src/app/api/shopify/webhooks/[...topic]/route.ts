@@ -92,9 +92,10 @@ async function handleShopRedact(shop: string, payload: any) {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { topic: string[] } }
+  context: { params: Promise<{ topic: string[] }> }
 ) {
   try {
+    const params = await context.params;
     const topic = params.topic.join('/');
     const hmac = request.headers.get('x-shopify-hmac-sha256');
     const shop = request.headers.get('x-shopify-shop-domain');
