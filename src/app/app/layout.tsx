@@ -1,13 +1,11 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import Script from 'next/script'
-
-export const dynamic = 'force-dynamic'
 
 // MUI Imports
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter'
-import { ThemeProvider } from '@mui/material/styles'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 
 // Component Imports
@@ -25,12 +23,20 @@ import { VerticalNavProvider } from '@menu/contexts/verticalNavContext'
 import { SettingsProvider } from '@core/contexts/settingsContext'
 
 // Theme Imports
-import theme from '@core/theme'
+import themeFunction from '@core/theme'
 
 // CSS Imports
 import 'react-perfect-scrollbar/dist/css/styles.css'
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  const [muiTheme, setMuiTheme] = useState(createTheme())
+
+  useEffect(() => {
+    // Initialize Vuexy theme on client-side only
+    const vuexyTheme = themeFunction({ skin: 'default' }, 'light', 'ltr')
+    setMuiTheme(createTheme(vuexyTheme))
+  }, [])
+
   return (
     <>
       <Script
@@ -40,7 +46,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <AppRouterCacheProvider>
         <ErrorBoundary>
           <SettingsProvider>
-            <ThemeProvider theme={theme({ skin: 'default' }, 'light', 'ltr')}>
+            <ThemeProvider theme={muiTheme}>
               <CssBaseline />
               <AppBridgeProvider>
                 <ToastProvider>
