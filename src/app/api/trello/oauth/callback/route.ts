@@ -57,6 +57,13 @@ export async function GET(request: NextRequest) {
     // Exchange authorization code for access token
     const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY;
     const clientSecret = process.env.TRELLO_CLIENT_SECRET || process.env.TRELLO_API_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.json(
+        { error: 'Missing Trello OAuth client configuration' },
+        { status: 500 }
+      );
+    }
     const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'}/api/trello/oauth/callback`;
 
     if (!clientId || !clientSecret) {

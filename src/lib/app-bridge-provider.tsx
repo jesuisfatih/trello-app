@@ -151,29 +151,46 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
         setMeta('shopify-shop', shopForMeta);
         setMeta('shopify-host', host);
         if (typeof document !== 'undefined' && document.body) {
-          document.body.setAttribute('data-shopify-shop-origin', shop);
+          document.body.setAttribute('data-shopify-shop', shop);
         }
 
-        if ((window as any).shopify?.config) {
+        const shopifyGlobal = (window as any).shopify;
+        let appInstance = shopifyGlobal;
+
+        if (shopifyGlobal?.createApp) {
           try {
-            (window as any).shopify.config({
+            appInstance = shopifyGlobal.createApp({
+              apiKey: SHOPIFY_API_KEY,
+              host,
+              shop,
+              forceRedirect: true,
+            });
+            (window as any).__SHOPIFY_APP__ = appInstance;
+          } catch (configError) {
+            console.warn('Failed to create App Bridge via createApp:', configError);
+          }
+        } else if (shopifyGlobal?.config) {
+          try {
+            shopifyGlobal.config({
               apiKey: SHOPIFY_API_KEY,
               host,
               shop,
               forceRedirect: true,
             });
           } catch (configError) {
-            console.warn('Failed to configure App Bridge:', configError);
+            console.warn('Failed to configure App Bridge via config:', configError);
           }
+        } else {
+          console.warn('Shopify App Bridge global object not ready yet.');
         }
 
-        const shopifyApp = (window as any).shopify;
-        setApp(shopifyApp);
+        setApp(appInstance);
 
         // Get initial session token (CDN version does this automatically)
-        if (shopifyApp.idToken) {
+        const tokenSource = shopifyGlobal?.idToken || appInstance?.idToken;
+        if (typeof tokenSource === 'function') {
           try {
-            const token = await shopifyApp.idToken();
+            const token = await tokenSource.call(shopifyGlobal ?? appInstance);
             if (token) {
               setSessionToken(token);
               console.log('✅ Session token acquired successfully');
@@ -195,16 +212,24 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getToken = async (): Promise<string | null> => {
-    // Try window.shopify directly (CDN provides this)
-    if (typeof window !== 'undefined' && (window as any).shopify?.idToken) {
-      try {
-        const token = await (window as any).shopify.idToken();
-        if (token) {
-          setSessionToken(token);
-          return token;
+    if (typeof window !== 'undefined') {
+      const shopifyGlobal = (window as any).shopify;
+      const appInstance = (window as any).__SHOPIFY_APP__ || app;
+
+      const tokenSource =
+        (shopifyGlobal && typeof shopifyGlobal.idToken === 'function' && shopifyGlobal.idToken) ||
+        (appInstance && typeof appInstance.idToken === 'function' && appInstance.idToken);
+
+      if (tokenSource) {
+        try {
+          const token = await tokenSource.call(shopifyGlobal ?? appInstance);
+          if (token) {
+            setSessionToken(token);
+            return token;
+          }
+        } catch (error) {
+          console.error('Failed to get session token:', error);
         }
-      } catch (error) {
-        console.error('Failed to get session token:', error);
       }
     }
 
