@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     // Get shop from cookie (set during Shopify OAuth install)
     let shopCookie = request.cookies.get('shopify_shop')?.value;
     let shop;
-    
+
     if (!shopCookie) {
       // Fallback: Use a default shop or create one
       // For development, we'll create a demo shop
@@ -31,16 +31,17 @@ export async function POST(request: NextRequest) {
         update: {},
       });
     } else {
-      // Find shop by cookie
-      shop = await prisma.shop.findUnique({
-        where: { domain: shopCookie },
-      });
+      const normalizedShop = shopCookie.toLowerCase();
 
-      if (!shop) {
-        return NextResponse.json({ 
-          error: 'Shop not found. Please install the app from Shopify first.' 
-        }, { status: 404 });
-      }
+      shop = await prisma.shop.upsert({
+        where: { domain: normalizedShop },
+        create: {
+          domain: normalizedShop,
+          status: 'active',
+          plan: 'development',
+        },
+        update: {},
+      });
     }
 
     // Save connection
