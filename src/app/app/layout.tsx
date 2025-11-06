@@ -9,9 +9,6 @@ import { ToastProvider } from '@/ui/components/Toast'
 import { ModalProvider } from '@/ui/components/Modal'
 import { ErrorBoundary } from '@/ui/components/ErrorBoundary'
 
-// CSS
-import 'react-perfect-scrollbar/dist/css/styles.css'
-
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
