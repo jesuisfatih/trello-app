@@ -49,10 +49,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                       {/* Logo */}
                       <div className="flex items-center flex-shrink-0 px-4 mb-8">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                            <FolderKanban className="w-5 h-5 text-white" />
+                          <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                            <FolderKanban className="w-6 h-6 text-white" />
                           </div>
-                          <span className="text-xl font-bold text-gray-900">ShopiTrello</span>
+                          <div>
+                            <span className="text-lg font-bold text-gray-900 block">SEO DROME</span>
+                            <span className="text-xs text-gray-500 uppercase tracking-wide">TEAM</span>
+                          </div>
                         </div>
                       </div>
 
@@ -106,10 +109,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                       <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
                         <div className="flex items-center flex-shrink-0 px-4 mb-8">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                              <FolderKanban className="w-5 h-5 text-white" />
+                            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                              <FolderKanban className="w-6 h-6 text-white" />
                             </div>
-                            <span className="text-xl font-bold text-gray-900">ShopiTrello</span>
+                            <div>
+                              <span className="text-lg font-bold text-gray-900 block">SEO DROME</span>
+                              <span className="text-xs text-gray-500 uppercase tracking-wide">TEAM</span>
+                            </div>
                           </div>
                         </div>
                         <nav className="px-3 space-y-1">

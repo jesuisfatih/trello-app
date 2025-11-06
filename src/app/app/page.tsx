@@ -68,8 +68,8 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       {/* Welcome Header */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Welcome to ShopiTrello</h1>
-        <p className="text-gray-600">Connect your Shopify store with Trello boards seamlessly</p>
+        <h1 className="text-3xl font-bold text-gray-900">Welcome to SEO DROME TEAM</h1>
+        <p className="text-gray-600">Manage your projects with powerful Trello integration</p>
       </div>
 
       {/* Connection Status */}

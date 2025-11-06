@@ -3,8 +3,8 @@ import Script from 'next/script'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'ShopiTrello - Trello Integration for Shopify',
-  description: 'Connect your Shopify store with Trello boards',
+  title: 'SEO DROME TEAM - Project Management',
+  description: 'Manage your team projects with Trello boards',
 }
 
 export default function RootLayout({
