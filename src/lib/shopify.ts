@@ -1,4 +1,4 @@
-import { shopifyApi, LATEST_API_VERSION, Session, LogSeverity } from '@shopify/shopify-api';
+import { shopifyApi, Session, LogSeverity } from '@shopify/shopify-api';
 import '@shopify/shopify-api/adapters/node';
 
 if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_API_SECRET) {
@@ -11,7 +11,7 @@ export const shopify = shopifyApi({
   scopes: (process.env.SHOPIFY_SCOPES || '').split(','),
   hostName: new URL(process.env.SHOPIFY_APP_URL || 'https://app.example.com').hostname,
   hostScheme: 'https',
-  apiVersion: (process.env.SHOPIFY_API_VERSION as any) || LATEST_API_VERSION,
+  apiVersion: (process.env.SHOPIFY_API_VERSION as any) || '2025-10',
   isEmbeddedApp: true,
   logger: {
     level: process.env.NODE_ENV === 'production' ? LogSeverity.Warning : LogSeverity.Debug,
