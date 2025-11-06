@@ -1,0 +1,55 @@
+{
+	email {$CADDY_ACME_EMAIL}
+	admin off
+}
+
+{$CADDY_DOMAIN} {
+	encode gzip zstd
+
+	header {
+		# Security headers
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Frame-Options "ALLOW-FROM https://*.myshopify.com"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+
+	# Health check endpoint
+	handle /api/health {
+		reverse_proxy web:3000
+	}
+
+	# WebSocket support for HMR and App Bridge
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	handle @websockets {
+		reverse_proxy web:3000
+	}
+
+	# Main reverse proxy
+	reverse_proxy web:3000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Logging
+	log {
+		output file /data/access.log {
+			roll_size 100mb
+			roll_keep 5
+			roll_keep_for 720h
+		}
+	}
+}
+
+# HTTP to HTTPS redirect
+http://{$CADDY_DOMAIN} {
+	redir https://{host}{uri} permanent
+}
+

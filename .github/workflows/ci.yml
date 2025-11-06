@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
+      
+      - name: Type check
+        run: npm run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Lint
+        run: npm run lint
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
+      
+      - name: Build
+        run: npm run build
+        env:
+          SHOPIFY_API_KEY: test
+          SHOPIFY_API_SECRET: test
+          SHOPIFY_APP_URL: https://test.example.com
+          TRELLO_API_KEY: test
+          TRELLO_API_SECRET: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+

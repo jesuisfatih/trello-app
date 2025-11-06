@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Shop {
+  id                  String              @id @default(cuid())
+  domain              String              @unique
+  accessTokenOffline  String?
+  installedAt         DateTime            @default(now())
+  uninstalledAt       DateTime?
+  plan                String?             @default("free")
+  status              String              @default("active") // active, uninstalled
+  
+  users               User[]
+  trelloConnections   TrelloConnection[]
+  trelloWebhooks      TrelloWebhook[]
+  eventLogs           EventLog[]
+  settings            Settings?
+
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([domain])
+  @@index([status])
+}
+
+model User {
+  id          String    @id @default(cuid())
+  shopId      String
+  email       String
+  sub         String?   // Shopify user sub from session token
+  sid         String?   // Shopify session ID
+  role        String    @default("merchant") // merchant, staff
+  
+  shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([shopId, email])
+  @@index([shopId])
+  @@index([sub])
+}
+
+model TrelloConnection {
+  id              String    @id @default(cuid())
+  shopId          String
+  trelloMemberId  String    // Trello user/member ID
+  token           String    // Trello OAuth access token
+  scope           String    // read,write,account
+  expiresAt       DateTime? // null = never expires
+  
+  shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([shopId])
+  @@index([shopId])
+  @@index([trelloMemberId])
+}
+
+model TrelloWebhook {
+  id              String    @id @default(cuid())
+  shopId          String
+  trelloWebhookId String    // Webhook ID from Trello
+  modelId         String    // Board/Card ID being watched
+  callbackUrl     String
+  active          Boolean   @default(true)
+  description     String?
+  
+  shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([trelloWebhookId])
+  @@index([shopId])
+  @@index([modelId])
+}
+
+model EventLog {
+  id          String    @id @default(cuid())
+  shopId      String?
+  source      String    // shopify, trello, system
+  type        String    // webhook, api_call, error, etc.
+  payload     Json
+  status      String    @default("success") // success, error, pending
+  errorMsg    String?
+  
+  shop        Shop?     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([source, type])
+  @@index([createdAt])
+}
+
+model Settings {
+  shopId          String    @id
+  defaultBoardId  String?
+  defaultListId   String?
+  mappingOptions  Json?     // Shopify to Trello mapping rules
+  
+  shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([shopId])
+}
+
