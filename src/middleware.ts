@@ -3,6 +3,14 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const response = NextResponse.next();
+
+  // Set security headers for all responses
+  // Note: Caddy also sets these, but we ensure they're correct here
+  response.headers.set(
+    'Content-Security-Policy',
+    "frame-ancestors https://*.myshopify.com https://admin.shopify.com https://*.shopify.com;"
+  );
 
   // Allow public routes
   const publicRoutes = [
@@ -15,15 +23,15 @@ export function middleware(request: NextRequest) {
   ];
 
   if (publicRoutes.some(route => pathname.startsWith(route))) {
-    return NextResponse.next();
+    return response;
   }
 
   // For app routes, let App Bridge handle authentication
   if (pathname.startsWith('/app')) {
-    return NextResponse.next();
+    return response;
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
