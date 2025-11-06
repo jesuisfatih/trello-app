@@ -2,119 +2,44 @@
 
 import { useEffect, useState } from 'react'
 
-// MUI Imports
-import Grid from '@mui/material/Grid'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
-import Alert from '@mui/material/Alert'
-import CardActions from '@mui/material/CardActions'
-
-// Component Imports
-import { useAppBridge } from '@/lib/app-bridge-provider'
-
-interface Board {
-  id: string
-  name: string
-  desc: string
-  url: string
-  closed: boolean
-}
-
 export default function BoardsPage() {
-  const [boards, setBoards] = useState<Board[]>([])
+  const [boards, setBoards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadBoards()
+    setLoading(false)
   }, [])
 
-  async function loadBoards() {
-    try {
-      // TODO: Get session token from App Bridge
-      // const { authenticatedFetch } = useAppBridge()
-      // const response = await authenticatedFetch('/api/trello/boards')
-      // const data = await response.json()
-      // setBoards(data.boards || [])
-      setBoards([])
-    } catch (err: any) {
-      setError(err.message || 'Failed to load boards')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className='flex items-center justify-center min-h-[400px]'>
-        <Typography>Loading boards...</Typography>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <Alert severity='error' action={
-        <Button color='inherit' size='small' onClick={loadBoards}>
-          Retry
-        </Button>
-      }>
-        {error}
-      </Alert>
-    )
-  }
+  if (loading) return <div className='p-8'>Loading...</div>
 
   return (
-    <Grid container spacing={6}>
-      <Grid item xs={12}>
-        <div className='flex justify-between items-center mb-6'>
-          <Typography variant='h4'>Trello Boards</Typography>
-          <Button variant='contained'>
-            Create Board
-          </Button>
-        </div>
-      </Grid>
+    <div className='p-8 max-w-7xl mx-auto'>
+      <div className='flex justify-between items-center mb-6'>
+        <h1 className='text-3xl font-bold'>Trello Boards</h1>
+        <button className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'>
+          Create Board
+        </button>
+      </div>
 
       {boards.length === 0 ? (
-        <Grid item xs={12}>
-          <Card>
-            <CardContent className='text-center py-12'>
-              <Typography variant='h6' className='mb-2'>No boards found</Typography>
-              <Typography color='text.secondary' className='mb-4'>
-                Connect Trello to get started
-              </Typography>
-              <Button variant='contained' href='/app/integrations/trello'>
-                Connect Trello
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
+        <div className='bg-white rounded-lg shadow p-12 text-center'>
+          <p className='text-gray-500 mb-4'>No boards found</p>
+          <a href='/app/integrations/trello' className='text-blue-600 hover:underline'>
+            Connect Trello to get started
+          </a>
+        </div>
       ) : (
-        boards.map((board) => (
-          <Grid item xs={12} sm={6} md={4} key={board.id}>
-            <Card>
-              <CardContent>
-                <Typography variant='h6' className='mb-2'>{board.name}</Typography>
-                {board.desc && (
-                  <Typography variant='body2' color='text.secondary' className='mb-3'>
-                    {board.desc}
-                  </Typography>
-                )}
-              </CardContent>
-              <CardActions>
-                <Button size='small' href={`/app/boards/${board.id}`}>
-                  View
-                </Button>
-                <Button size='small' href={board.url} target='_blank'>
-                  Open in Trello
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+          {boards.map((board: any) => (
+            <div key={board.id} className='bg-white rounded-lg shadow p-4'>
+              <h3 className='font-semibold mb-2'>{board.name}</h3>
+              <div className='flex gap-2'>
+                <a href={`/app/boards/${board.id}`} className='text-blue-600'>View</a>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-    </Grid>
+    </div>
   )
 }

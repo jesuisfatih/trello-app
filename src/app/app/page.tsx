@@ -1,197 +1,69 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-// MUI Imports
-import Grid from '@mui/material/Grid'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Typography from '@mui/material/Typography'
-import Chip from '@mui/material/Chip'
-import Button from '@mui/material/Button'
-import Alert from '@mui/material/Alert'
-
-// Component Imports
 import { useAppBridge } from '@/lib/app-bridge-provider'
 
-interface ConnectionStatus {
-  shopify: boolean
-  trello: boolean
-}
-
-interface Activity {
-  id: string
-  type: string
-  message: string
-  timestamp: string
-}
-
 export default function Dashboard() {
-  const [status, setStatus] = useState<ConnectionStatus>({
-    shopify: false,
-    trello: false,
-  })
-  const [activities, setActivities] = useState<Activity[]>([])
+  const [status, setStatus] = useState({ shopify: true, trello: false })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadDashboardData()
+    setLoading(false)
   }, [])
 
-  async function loadDashboardData() {
-    try {
-      // TODO: Fetch actual data from API
-      setStatus({
-        shopify: true,
-        trello: false,
-      })
-
-      setActivities([
-        {
-          id: '1',
-          type: 'info',
-          message: 'Welcome to ShopiTrello!',
-          timestamp: new Date().toISOString(),
-        },
-      ])
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   if (loading) {
-    return (
-      <div className='flex items-center justify-center min-h-[400px]'>
-        <Typography>Loading...</Typography>
-      </div>
-    )
+    return <div className='p-8'>Loading...</div>
   }
 
   return (
-    <Grid container spacing={6}>
+    <div className='p-8 max-w-7xl mx-auto'>
+      <h1 className='text-3xl font-bold mb-8'>ShopiTrello Dashboard</h1>
+      
       {/* Connection Status */}
-      <Grid item xs={12}>
-        <Card>
-          <CardContent>
-            <Typography variant='h5' className='mb-4'>
-              Connection Status
-            </Typography>
-            <div className='flex gap-6'>
-              <div className='flex items-center gap-2'>
-                <Chip
-                  label='Shopify'
-                  color={status.shopify ? 'success' : 'default'}
-                  variant={status.shopify ? 'filled' : 'outlined'}
-                />
-              </div>
-              <div className='flex items-center gap-2'>
-                <Chip
-                  label='Trello'
-                  color={status.trello ? 'success' : 'default'}
-                  variant={status.trello ? 'filled' : 'outlined'}
-                />
-              </div>
-            </div>
-            {!status.trello && (
-              <div className='mt-4'>
-                <Button variant='contained' href='/app/integrations/trello'>
-                  Connect Trello
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </Grid>
-
-      {/* Recent Activities */}
-      <Grid item xs={12}>
-        <Card>
-          <CardContent>
-            <Typography variant='h5' className='mb-4'>
-              Recent Activities
-            </Typography>
-            {activities.length === 0 ? (
-              <Typography color='text.secondary'>No recent activities</Typography>
-            ) : (
-              <div className='flex flex-col gap-3'>
-                {activities.map((activity) => (
-                  <Alert key={activity.id} severity='info'>
-                    <div>
-                      <Typography variant='body2'>{activity.message}</Typography>
-                      <Typography variant='caption' color='text.secondary'>
-                        {new Date(activity.timestamp).toLocaleString()}
-                      </Typography>
-                    </div>
-                  </Alert>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </Grid>
+      <div className='bg-white rounded-lg shadow p-6 mb-6'>
+        <h2 className='text-xl font-semibold mb-4'>Connection Status</h2>
+        <div className='flex gap-4'>
+          <div className='flex items-center gap-2'>
+            <div className={`w-3 h-3 rounded-full ${status.shopify ? 'bg-green-500' : 'bg-gray-300'}`} />
+            <span>Shopify</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <div className={`w-3 h-3 rounded-full ${status.trello ? 'bg-green-500' : 'bg-gray-300'}`} />
+            <span>Trello</span>
+          </div>
+        </div>
+        {!status.trello && (
+          <a
+            href='/app/integrations/trello'
+            className='inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
+          >
+            Connect Trello
+          </a>
+        )}
+      </div>
 
       {/* Quick Actions */}
-      <Grid item xs={12}>
-        <Card>
-          <CardContent>
-            <Typography variant='h5' className='mb-4'>
-              Quick Actions
-            </Typography>
-            <Grid container spacing={4}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant='outlined'
-                  href='/app/boards'
-                  className='flex flex-col gap-2 p-4'
-                  sx={{ height: '100px' }}
-                >
-                  <i className='tabler-layout-board text-3xl' />
-                  <span>Boards</span>
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant='outlined'
-                  href='/app/mappings'
-                  className='flex flex-col gap-2 p-4'
-                  sx={{ height: '100px' }}
-                >
-                  <i className='tabler-arrows-exchange text-3xl' />
-                  <span>Mappings</span>
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant='outlined'
-                  href='/app/logs'
-                  className='flex flex-col gap-2 p-4'
-                  sx={{ height: '100px' }}
-                >
-                  <i className='tabler-file-text text-3xl' />
-                  <span>Logs</span>
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant='outlined'
-                  href='/app/settings'
-                  className='flex flex-col gap-2 p-4'
-                  sx={{ height: '100px' }}
-                >
-                  <i className='tabler-settings text-3xl' />
-                  <span>Settings</span>
-                </Button>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      </Grid>
-    </Grid>
+      <div className='bg-white rounded-lg shadow p-6'>
+        <h2 className='text-xl font-semibold mb-4'>Quick Actions</h2>
+        <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+          <a href='/app/boards' className='p-6 border rounded hover:bg-gray-50 text-center'>
+            <div className='text-3xl mb-2'>📋</div>
+            <div className='font-medium'>Boards</div>
+          </a>
+          <a href='/app/mappings' className='p-6 border rounded hover:bg-gray-50 text-center'>
+            <div className='text-3xl mb-2'>🔗</div>
+            <div className='font-medium'>Mappings</div>
+          </a>
+          <a href='/app/logs' className='p-6 border rounded hover:bg-gray-50 text-center'>
+            <div className='text-3xl mb-2'>📝</div>
+            <div className='font-medium'>Logs</div>
+          </a>
+          <a href='/app/settings' className='p-6 border rounded hover:bg-gray-50 text-center'>
+            <div className='text-3xl mb-2'>⚙️</div>
+            <div className='font-medium'>Settings</div>
+          </a>
+        </div>
+      </div>
+    </div>
   )
 }

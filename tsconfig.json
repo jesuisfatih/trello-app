@@ -19,16 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@core/*": ["./src/@core/*"],
-      "@layouts/*": ["./src/@layouts/*"],
-      "@menu/*": ["./src/@menu/*"],
-      "@components/*": ["./src/components/*"],
-      "@configs/*": ["./src/configs/*"]
+      "@/*": ["./src/*"]
     },
     "forceConsistentCasingInFileNames": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }
-
