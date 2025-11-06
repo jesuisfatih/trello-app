@@ -37,6 +37,7 @@
     "classnames": "^2.5.1",
     "cmdk": "^1.0.0",
     "@radix-ui/react-dialog": "^1.1.2",
+    "@floating-ui/react": "^0.26.28",
     "react-use": "^17.5.1",
     "oauth-1.0a": "^2.2.6",
     "crypto-js": "^4.2.0",
