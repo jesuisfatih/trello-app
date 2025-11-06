@@ -1,147 +1,141 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { DashboardLayout } from '@/ui/components/DashboardLayout';
+import { useEffect, useState } from 'react'
+
+// MUI Imports
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Typography from '@mui/material/Typography'
+import Chip from '@mui/material/Chip'
+import ButtonGroup from '@mui/material/ButtonGroup'
+import Button from '@mui/material/Button'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
 
 interface Log {
-  id: string;
-  source: string;
-  type: string;
-  status: string;
-  createdAt: string;
-  errorMsg?: string;
+  id: string
+  source: string
+  type: string
+  status: string
+  createdAt: string
+  errorMsg?: string
 }
 
 export default function LogsPage() {
-  const [logs, setLogs] = useState<Log[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'shopify' | 'trello'>('all');
+  const [logs, setLogs] = useState<Log[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'shopify' | 'trello'>('all')
 
   useEffect(() => {
-    loadLogs();
-  }, [filter]);
+    loadLogs()
+  }, [filter])
 
   async function loadLogs() {
-    setLoading(true);
+    setLoading(true)
     try {
       // TODO: Fetch actual logs from API
-      setLogs([]);
+      setLogs([])
     } catch (error) {
-      console.error('Failed to load logs:', error);
+      console.error('Failed to load logs:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
   const filteredLogs = logs.filter((log) =>
     filter === 'all' ? true : log.source === filter
-  );
+  )
 
   return (
-    <DashboardLayout title="Event Logs">
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Event Logs</h1>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter('shopify')}
-              className={`px-4 py-2 rounded ${
-                filter === 'shopify'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              Shopify
-            </button>
-            <button
-              onClick={() => setFilter('trello')}
-              className={`px-4 py-2 rounded ${
-                filter === 'trello'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              Trello
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading logs...</div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No logs found</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Source
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Details
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {log.source}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {log.type}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            log.status === 'success'
-                              ? 'bg-green-100 text-green-800'
-                              : log.status === 'error'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {log.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {log.errorMsg || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+    <div>
+      <div className='flex justify-between items-center mb-6'>
+        <Typography variant='h4'>Event Logs</Typography>
+        <ButtonGroup variant='outlined'>
+          <Button
+            variant={filter === 'all' ? 'contained' : 'outlined'}
+            onClick={() => setFilter('all')}
+          >
+            All
+          </Button>
+          <Button
+            variant={filter === 'shopify' ? 'contained' : 'outlined'}
+            onClick={() => setFilter('shopify')}
+          >
+            Shopify
+          </Button>
+          <Button
+            variant={filter === 'trello' ? 'contained' : 'outlined'}
+            onClick={() => setFilter('trello')}
+          >
+            Trello
+          </Button>
+        </ButtonGroup>
       </div>
-    </DashboardLayout>
-  );
-}
 
+      <Card>
+        {loading ? (
+          <CardContent className='text-center py-12'>
+            <Typography>Loading logs...</Typography>
+          </CardContent>
+        ) : filteredLogs.length === 0 ? (
+          <CardContent className='text-center py-12'>
+            <Typography color='text.secondary'>No logs found</Typography>
+          </CardContent>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Time</TableCell>
+                  <TableCell>Source</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Details</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredLogs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell>
+                      <Typography variant='body2'>
+                        {new Date(log.createdAt).toLocaleString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={log.source} size='small' color='primary' variant='outlined' />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant='body2'>{log.type}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={log.status}
+                        size='small'
+                        color={
+                          log.status === 'success'
+                            ? 'success'
+                            : log.status === 'error'
+                            ? 'error'
+                            : 'warning'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant='body2' color='text.secondary'>
+                        {log.errorMsg || '-'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Card>
+    </div>
+  )
+}

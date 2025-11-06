@@ -1,125 +1,144 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { DashboardLayout } from '@/ui/components/DashboardLayout';
+import { useState } from 'react'
+
+// MUI Imports
+import Grid from '@mui/material/Grid'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
+import Chip from '@mui/material/Chip'
+import Divider from '@mui/material/Divider'
 
 export default function SettingsPage() {
-  const [testing, setTesting] = useState(false);
-  const [testResults, setTestResults] = useState<any>(null);
+  const [testing, setTesting] = useState(false)
+  const [testResults, setTestResults] = useState<any>(null)
 
   async function testConnections() {
-    setTesting(true);
-    setTestResults(null);
+    setTesting(true)
+    setTestResults(null)
 
     try {
-      // Test Shopify connection
-      const shopifyResult = await fetch('/api/health').then((r) => r.json());
-
-      // TODO: Test Trello connection
-      const trelloResult = { status: 'pending' };
+      const shopifyResult = await fetch('/api/health').then((r) => r.json())
+      const trelloResult = { status: 'pending' }
 
       setTestResults({
         shopify: shopifyResult,
         trello: trelloResult,
-      });
+      })
     } catch (error) {
-      console.error('Connection test failed:', error);
-      setTestResults({ error: 'Failed to test connections' });
+      console.error('Connection test failed:', error)
+      setTestResults({ error: 'Failed to test connections' })
     } finally {
-      setTesting(false);
+      setTesting(false)
     }
   }
 
   return (
-    <DashboardLayout title="Settings">
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Settings</h1>
+    <Grid container spacing={6}>
+      <Grid item xs={12}>
+        <Typography variant='h4'>Settings</Typography>
+      </Grid>
 
-        {/* API Status */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">API Status</h2>
-          <button
-            onClick={testConnections}
-            disabled={testing}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {testing ? 'Testing...' : 'Test Connections'}
-          </button>
+      {/* API Status */}
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant='h6' className='mb-4'>
+              API Status
+            </Typography>
+            <Button
+              variant='contained'
+              onClick={testConnections}
+              disabled={testing}
+              className='mb-4'
+            >
+              {testing ? 'Testing...' : 'Test Connections'}
+            </Button>
 
-          {testResults && (
-            <div className="mt-4 space-y-2">
-              {testResults.error ? (
-                <div className="p-3 bg-red-50 text-red-700 rounded">
-                  {testResults.error}
-                </div>
-              ) : (
-                <>
-                  <div className="p-3 bg-gray-50 rounded">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Shopify</span>
-                      <span
-                        className={`${
-                          testResults.shopify?.status === 'ok'
-                            ? 'text-green-600'
-                            : 'text-red-600'
-                        }`}
-                      >
-                        {testResults.shopify?.status || 'Unknown'}
-                      </span>
+            {testResults && (
+              <div className='flex flex-col gap-3'>
+                {testResults.error ? (
+                  <Alert severity='error'>{testResults.error}</Alert>
+                ) : (
+                  <>
+                    <div className='flex justify-between items-center p-3 bg-gray-50 rounded'>
+                      <Typography>Shopify</Typography>
+                      <Chip
+                        label={testResults.shopify?.status || 'Unknown'}
+                        color={testResults.shopify?.status === 'ok' ? 'success' : 'error'}
+                        size='small'
+                      />
                     </div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Trello</span>
-                      <span className="text-yellow-600">
-                        {testResults.trello?.status || 'Not tested'}
-                      </span>
+                    <div className='flex justify-between items-center p-3 bg-gray-50 rounded'>
+                      <Typography>Trello</Typography>
+                      <Chip
+                        label={testResults.trello?.status || 'Not tested'}
+                        color='warning'
+                        size='small'
+                      />
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+                  </>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </Grid>
 
-        {/* Webhook Settings */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Webhook Settings</h2>
-          <p className="text-gray-600 mb-4">
-            Webhooks are automatically configured when you connect your accounts.
-          </p>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span>Shopify Webhooks</span>
-              <span className="text-green-600">Active</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span>Trello Webhooks</span>
-              <span className="text-gray-500">Not configured</span>
-            </div>
-          </div>
-        </div>
+      {/* Webhook Settings */}
+      <Grid item xs={12} md={6}>
+        <Card>
+          <CardContent>
+            <Typography variant='h6' className='mb-4'>
+              Webhook Settings
+            </Typography>
+            <Typography variant='body2' color='text.secondary' className='mb-4'>
+              Webhooks are automatically configured when you connect your accounts.
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText primary='Shopify Webhooks' />
+                <Chip label='Active' color='success' size='small' />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText primary='Trello Webhooks' />
+                <Chip label='Not configured' color='default' size='small' />
+              </ListItem>
+            </List>
+          </CardContent>
+        </Card>
+      </Grid>
 
-        {/* About */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">About</h2>
-          <dl className="space-y-2">
-            <div className="flex justify-between">
-              <dt className="text-gray-600">App Version</dt>
-              <dd className="font-medium">1.0.0</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-600">API Version</dt>
-              <dd className="font-medium">2025-10</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-600">Node Version</dt>
-              <dd className="font-medium">{process.version || 'N/A'}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-    </DashboardLayout>
-  );
+      {/* About */}
+      <Grid item xs={12}>
+        <Card>
+          <CardContent>
+            <Typography variant='h6' className='mb-4'>
+              About
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText primary='App Version' secondary='1.0.0' />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText primary='API Version' secondary='2025-10' />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText primary='Theme' secondary='Vuexy + Material UI' />
+              </ListItem>
+            </List>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  )
 }
-

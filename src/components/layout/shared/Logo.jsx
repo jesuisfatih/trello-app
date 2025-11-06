@@ -59,7 +59,7 @@ const Logo = ({ color }) => {
 
   return (
     <div className='flex items-center'>
-      <VuexyLogo className='text-2xl text-primary' />
+      <i className='tabler-brand-trello text-3xl text-primary' />
       <LogoText
         color={color}
         ref={logoTextRef}
