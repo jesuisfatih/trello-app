@@ -29,44 +29,57 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAppBridge = async () => {
       try {
-        // Wait for App Bridge script to load
+        // Wait for App Bridge script to load (max 10 seconds)
+        let attempts = 0;
+        const maxAttempts = 100;
+        
+        while (typeof window !== 'undefined' && !(window as any).shopify && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+
         if (typeof window === 'undefined' || !(window as any).shopify) {
-          await new Promise((resolve) => {
-            const checkShopify = setInterval(() => {
-              if ((window as any).shopify) {
-                clearInterval(checkShopify);
-                resolve(true);
-              }
-            }, 100);
-          });
+          console.warn('App Bridge script not loaded, continuing without it');
+          setLoading(false);
+          return;
         }
 
         const shopifyApp = (window as any).shopify;
         
-        if (!shopifyApp) {
-          throw new Error('Shopify App Bridge not loaded');
-        }
-
         // Get config from URL params (Shopify provides these)
         const urlParams = new URLSearchParams(window.location.search);
         const host = urlParams.get('host');
-        const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
+        const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
 
-        if (!apiKey) {
-          throw new Error('Shopify API key not configured');
+        // Try to configure App Bridge if config method exists
+        if (shopifyApp.config && host && apiKey) {
+          try {
+            shopifyApp.config({
+              apiKey,
+              host,
+            });
+          } catch (configError) {
+            console.warn('App Bridge config failed:', configError);
+          }
         }
 
-        if (!host) {
-          console.warn('Host parameter missing, app may not work correctly in Shopify admin');
-        }
-
-        // App Bridge is initialized automatically via script
         setApp(shopifyApp);
         
-        // Get initial session token
+        // Get initial session token (with retry)
         if (shopifyApp.idToken) {
-          const token = await shopifyApp.idToken();
-          setSessionToken(token);
+          try {
+            const token = await Promise.race([
+              shopifyApp.idToken(),
+              new Promise<string | null>((resolve) => 
+                setTimeout(() => resolve(null), 3000)
+              )
+            ]);
+            if (token) {
+              setSessionToken(token);
+            }
+          } catch (tokenError) {
+            console.warn('Failed to get initial session token:', tokenError);
+          }
         }
 
         setLoading(false);
@@ -81,19 +94,45 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getSessionToken = async (): Promise<string | null> => {
-    if (!app || !app.idToken) {
-      console.error('App Bridge not initialized');
-      return null;
+    // Try to get token from App Bridge
+    if (app && app.idToken) {
+      try {
+        const token = await Promise.race([
+          app.idToken(),
+          new Promise<string | null>((resolve) => 
+            setTimeout(() => resolve(null), 2000)
+          )
+        ]);
+        if (token) {
+          setSessionToken(token);
+          return token;
+        }
+      } catch (error) {
+        console.warn('Failed to get session token from App Bridge:', error);
+      }
     }
 
-    try {
-      const token = await app.idToken();
-      setSessionToken(token);
-      return token;
-    } catch (error) {
-      console.error('Failed to get session token:', error);
-      return null;
+    // Fallback: Try to get from window.shopify directly
+    if (typeof window !== 'undefined' && (window as any).shopify?.idToken) {
+      try {
+        const token = await (window as any).shopify.idToken();
+        if (token) {
+          setSessionToken(token);
+          setApp((window as any).shopify);
+          return token;
+        }
+      } catch (error) {
+        console.warn('Failed to get session token from window.shopify:', error);
+      }
     }
+
+    // If we have a cached token, return it
+    if (sessionToken) {
+      return sessionToken;
+    }
+
+    console.warn('No session token available');
+    return null;
   };
 
   const authenticatedFetch = async (

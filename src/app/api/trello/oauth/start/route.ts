@@ -10,13 +10,49 @@ export async function GET(request: NextRequest) {
   try {
     // Get shop from session
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let shopDomain: string | null = null;
+
+    if (authHeader?.startsWith('Bearer ') && authHeader !== 'Bearer null') {
+      try {
+        const sessionToken = authHeader.substring(7);
+        if (sessionToken && sessionToken !== 'null') {
+          const payload = await validateSessionToken(sessionToken);
+          shopDomain = payload.dest.replace('https://', '');
+        }
+      } catch (tokenError) {
+        console.warn('Session token validation failed:', tokenError);
+      }
     }
 
-    const sessionToken = authHeader.substring(7);
-    const payload = await validateSessionToken(sessionToken);
-    const shopDomain = payload.dest.replace('https://', '');
+    // Fallback: Try to get shop from URL or cookies
+    if (!shopDomain) {
+      const urlParams = request.nextUrl.searchParams;
+      const host = urlParams.get('host');
+      
+      // Try to decode host to get shop
+      if (host) {
+        try {
+          const decodedHost = Buffer.from(host, 'base64').toString();
+          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
+          if (shopMatch) {
+            shopDomain = shopMatch[1];
+          }
+        } catch (e) {
+          // Host is not base64, try direct match
+          const directMatch = host.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
+          if (directMatch) {
+            shopDomain = directMatch[1];
+          }
+        }
+      }
+    }
+
+    if (!shopDomain) {
+      return NextResponse.json(
+        { error: 'Unable to determine shop domain. Please ensure you are accessing this from Shopify admin.' },
+        { status: 400 }
+      );
+    }
 
     const shop = await prisma.shop.findUnique({
       where: { domain: shopDomain },

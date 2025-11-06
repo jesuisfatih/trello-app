@@ -41,6 +41,24 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <Script
         src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
         strategy="beforeInteractive"
+        onLoad={() => {
+          // Initialize App Bridge after script loads
+          if (typeof window !== 'undefined' && (window as any).shopify?.config) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const host = urlParams.get('host');
+            const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
+            if (apiKey && host) {
+              try {
+                (window as any).shopify.config({
+                  apiKey,
+                  host,
+                });
+              } catch (e) {
+                console.error('App Bridge config error:', e);
+              }
+            }
+          }
+        }}
       />
       <ErrorBoundary>
         <AppBridgeProvider>

@@ -68,6 +68,38 @@ export default function TrelloIntegrationPage() {
       setError(null)
       
       const sessionToken = await getSessionToken()
+      
+      if (!sessionToken) {
+        // Fallback: Get shop from URL or use manual token method
+        const urlParams = new URLSearchParams(window.location.search)
+        const host = urlParams.get('host')
+        
+        if (!host) {
+          setError('Unable to get session token. Please use manual token method or refresh the page.')
+          setConnecting(false)
+          return
+        }
+
+        // Try to extract shop from host
+        // Host format: base64(shop/admin/apps/{apiKey})
+        try {
+          const decodedHost = atob(host)
+          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
+          if (shopMatch) {
+            // Use manual token flow or show error
+            setError('Session token unavailable. Please use the manual token method below.')
+            setConnecting(false)
+            return
+          }
+        } catch (e) {
+          // Host is not base64 encoded, try direct
+        }
+
+        setError('Session token unavailable. Please use the manual token method.')
+        setConnecting(false)
+        return
+      }
+
       const response = await fetch('/api/trello/oauth/start', {
         headers: {
           'Authorization': `Bearer ${sessionToken}`,
@@ -75,7 +107,8 @@ export default function TrelloIntegrationPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start OAuth flow')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to start OAuth flow')
       }
 
       const data = await response.json()

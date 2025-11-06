@@ -11,9 +11,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || process.env.SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
+  
   return (
     <html lang="en">
       <head>
+        <meta name="shopify-api-key" content={apiKey} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
