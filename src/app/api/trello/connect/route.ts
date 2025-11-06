@@ -79,8 +79,35 @@ export async function POST(request: NextRequest) {
 
     // Test connection with token
     try {
+      const apiKey = process.env.TRELLO_API_KEY;
+      if (!apiKey) {
+        return NextResponse.json(
+          { error: 'Trello API key is not configured. Please set TRELLO_API_KEY environment variable.' },
+          { status: 500 }
+        );
+      }
+
       const client = createTrelloClient(token);
-      const member = await client.request('GET', '/1/members/me');
+      
+      // Test API call with better error handling
+      let member;
+      try {
+        member = await client.request('GET', '/1/members/me');
+      } catch (apiError: any) {
+        console.error('Trello API request failed:', {
+          error: apiError.message,
+          apiKey: apiKey ? `${apiKey.substring(0, 8)}...` : 'MISSING',
+          tokenPrefix: token.substring(0, 8),
+        });
+        
+        // Provide specific error messages
+        if (apiError.message?.includes('401') || apiError.message?.includes('unauthorized')) {
+          throw new Error('Invalid Trello token or API key. Please verify your token is correct and matches the API key.');
+        } else if (apiError.message?.includes('invalid')) {
+          throw new Error('Invalid Trello token. The token may be expired or incorrect.');
+        }
+        throw apiError;
+      }
       
       if (!member || !member.id) {
         throw new Error('Invalid token: Unable to retrieve member information');
