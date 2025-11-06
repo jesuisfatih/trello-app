@@ -1,12 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-
-interface AppBridgeConfig {
-  apiKey: string;
-  host: string;
-  forceRedirect?: boolean;
-}
+import createApp from '@shopify/app-bridge';
 
 interface AppBridgeContextType {
   app: any;
@@ -29,51 +24,32 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAppBridge = async () => {
       try {
-        // Wait for App Bridge script to load (max 10 seconds)
-        let attempts = 0;
-        const maxAttempts = 100;
-        
-        while (typeof window !== 'undefined' && !(window as any).shopify && attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
-
-        if (typeof window === 'undefined' || !(window as any).shopify) {
-          console.warn('App Bridge script not loaded, continuing without it');
-          setLoading(false);
-          return;
-        }
-
-        const shopifyApp = (window as any).shopify;
-        
-        // Get config from URL params (Shopify provides these)
+        // Get config from URL (Shopify provides host parameter)
         const urlParams = new URLSearchParams(window.location.search);
         const host = urlParams.get('host');
         const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
 
-        // Try to configure App Bridge if config method exists
-        if (shopifyApp.config && host && apiKey) {
-          try {
-            shopifyApp.config({
-              apiKey,
-              host,
-            });
-          } catch (configError) {
-            console.warn('App Bridge config failed:', configError);
-          }
+        if (!host) {
+          console.warn('Host parameter missing - app may not work in Shopify admin');
+          setLoading(false);
+          return;
         }
 
+        // Create App Bridge instance (Shopify official method)
+        const shopifyApp = createApp({
+          apiKey,
+          host,
+          forceRedirect: true,
+        });
+
         setApp(shopifyApp);
-        
-        // Get initial session token (with retry)
-        if (shopifyApp.idToken) {
+
+        // Get initial session token
+        if (shopifyApp) {
           try {
-            const token = await Promise.race([
-              shopifyApp.idToken(),
-              new Promise<string | null>((resolve) => 
-                setTimeout(() => resolve(null), 3000)
-              )
-            ]);
+            // Import getSessionToken from App Bridge utilities
+            const { getSessionToken: getBridgeToken } = await import('@shopify/app-bridge/utilities');
+            const token = await getBridgeToken(shopifyApp);
             if (token) {
               setSessionToken(token);
             }
@@ -94,44 +70,22 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getSessionToken = async (): Promise<string | null> => {
-    // Try to get token from App Bridge
-    if (app && app.idToken) {
-      try {
-        const token = await Promise.race([
-          app.idToken(),
-          new Promise<string | null>((resolve) => 
-            setTimeout(() => resolve(null), 2000)
-          )
-        ]);
-        if (token) {
-          setSessionToken(token);
-          return token;
-        }
-      } catch (error) {
-        console.warn('Failed to get session token from App Bridge:', error);
+    if (!app) {
+      console.warn('App Bridge not initialized');
+      return null;
+    }
+
+    try {
+      const { getSessionToken: getBridgeToken } = await import('@shopify/app-bridge/utilities');
+      const token = await getBridgeToken(app);
+      if (token) {
+        setSessionToken(token);
+        return token;
       }
+    } catch (error) {
+      console.error('Failed to get session token:', error);
     }
 
-    // Fallback: Try to get from window.shopify directly
-    if (typeof window !== 'undefined' && (window as any).shopify?.idToken) {
-      try {
-        const token = await (window as any).shopify.idToken();
-        if (token) {
-          setSessionToken(token);
-          setApp((window as any).shopify);
-          return token;
-        }
-      } catch (error) {
-        console.warn('Failed to get session token from window.shopify:', error);
-      }
-    }
-
-    // If we have a cached token, return it
-    if (sessionToken) {
-      return sessionToken;
-    }
-
-    console.warn('No session token available');
     return null;
   };
 
@@ -156,10 +110,18 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   };
 
   const showToast = (message: string, isError: boolean = false) => {
-    if (app && app.toast) {
-      app.toast.show(message, { isError, duration: 3000 });
+    if (app && app.dispatch) {
+      // Use App Bridge Toast action
+      const Toast = app.Toast || {};
+      if (Toast.create) {
+        const toastOptions = {
+          message,
+          duration: 3000,
+          isError,
+        };
+        Toast.create(app, toastOptions).dispatch(Toast.Action.SHOW);
+      }
     } else {
-      // Fallback for development
       if (isError) {
         console.error('Toast:', message);
       } else {
@@ -192,4 +154,3 @@ export function useAppBridge() {
   }
   return context;
 }
-

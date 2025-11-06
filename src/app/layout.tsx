@@ -17,10 +17,6 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="shopify-api-key" content={apiKey} />
-        <script 
-          src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
-          suppressHydrationWarning
-        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>

@@ -1,7 +1,6 @@
 'use client'
 
 import { ReactNode, useState } from 'react'
-import Script from 'next/script'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
