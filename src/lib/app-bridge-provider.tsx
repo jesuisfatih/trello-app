@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { normalizeShopDomain } from '@/lib/shop';
+import { extractShopFromHost, normalizeShopDomain } from '@/lib/shop';
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 const SHOPIFY_API_KEY = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
@@ -14,8 +14,10 @@ const getCookie = (name: string): string | null => {
 
 const setClientCookie = (name: string, value: string) => {
   if (typeof document === 'undefined') return;
-  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${secure}`;
+  const isSecureContext = window.location.protocol === 'https:';
+  const sameSite = isSecureContext ? 'None' : 'Lax';
+  const secure = sameSite === 'None' ? '; Secure' : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=${sameSite}${secure}`;
 };
 
 interface AppBridgeContextType {
@@ -58,18 +60,54 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
           setClientCookie('shopify_host', hostFromUrl);
         }
 
-        if (shopFromUrl) {
-          const normalizedShop = normalizeShopDomain(shopFromUrl);
-          if (normalizedShop) {
-            setClientCookie('shopify_shop', normalizedShop);
-          }
+        let shopFromContext = normalizeShopDomain(shopFromUrl);
+        if (shopFromContext) {
+          setClientCookie('shopify_shop', shopFromContext);
         }
 
-        const hostFromCookie = getCookie('shopify_host');
-        const host = hostFromUrl || hostFromCookie;
+        const waitForShopContext = async (): Promise<{ host: string | null; shop: string | null }> => {
+          let attempts = 0;
+          let hostCandidate: string | null = hostFromUrl || getCookie('shopify_host');
+          let shopCandidate: string | null = shopFromContext || normalizeShopDomain(getCookie('shopify_shop'));
 
-        if (!host) {
-          console.warn('Shopify host parameter missing. App Bridge cannot initialise.');
+          while ((!hostCandidate || !shopCandidate) && attempts < 60) {
+            if (!hostCandidate) {
+              hostCandidate = getCookie('shopify_host');
+            }
+
+            if (!shopCandidate) {
+              const shopCookie = getCookie('shopify_shop');
+              if (shopCookie) {
+                const normalized = normalizeShopDomain(shopCookie);
+                if (normalized) {
+                  shopCandidate = normalized;
+                }
+              }
+            }
+
+            if (!shopCandidate && hostCandidate) {
+              const fromHost = extractShopFromHost(hostCandidate);
+              if (fromHost) {
+                shopCandidate = fromHost;
+                setClientCookie('shopify_shop', fromHost);
+              }
+            }
+
+            if (hostCandidate && shopCandidate) {
+              break;
+            }
+
+            attempts += 1;
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+
+          return { host: hostCandidate, shop: shopCandidate };
+        };
+
+        const { host, shop } = await waitForShopContext();
+
+        if (!host || !shop) {
+          console.warn('Shopify host or shop parameter missing. App Bridge cannot initialise.');
           setLoading(false);
           return;
         }
@@ -79,6 +117,7 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
             (window as any).shopify.config({
               apiKey: SHOPIFY_API_KEY,
               host,
+              shop,
               forceRedirect: true,
             });
           } catch (configError) {
