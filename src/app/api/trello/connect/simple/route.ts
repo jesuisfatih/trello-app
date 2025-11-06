@@ -15,12 +15,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Get shop from cookie (set during Shopify OAuth install)
-    const shopCookie = request.cookies.get('shopify_shop')?.value;
+    let shopCookie = request.cookies.get('shopify_shop')?.value;
+    let shop;
     
     if (!shopCookie) {
       // Fallback: Use a default shop or create one
       // For development, we'll create a demo shop
-      const demoShop = await prisma.shop.upsert({
+      shop = await prisma.shop.upsert({
         where: { domain: 'demo.myshopify.com' },
         create: {
           domain: 'demo.myshopify.com',
@@ -29,49 +30,17 @@ export async function POST(request: NextRequest) {
         },
         update: {},
       });
-
-      // Save connection
-      await prisma.trelloConnection.upsert({
-        where: { shopId: demoShop.id },
-        create: {
-          shopId: demoShop.id,
-          trelloMemberId: memberId,
-          token: token,
-          scope: 'read,write',
-          expiresAt: null,
-        },
-        update: {
-          token: token,
-          trelloMemberId: memberId,
-        },
+    } else {
+      // Find shop by cookie
+      shop = await prisma.shop.findUnique({
+        where: { domain: shopCookie },
       });
 
-      await prisma.eventLog.create({
-        data: {
-          shopId: demoShop.id,
-          source: 'trello',
-          type: 'manual_token_connected',
-          payload: { memberId, memberName },
-          status: 'success',
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Trello connected successfully',
-        member: { id: memberId, fullName: memberName },
-      });
-    }
-
-    // Find shop by cookie
-    const shop = await prisma.shop.findUnique({
-      where: { domain: shopCookie },
-    });
-
-    if (!shop) {
-      return NextResponse.json({ 
-        error: 'Shop not found. Please install the app from Shopify first.' 
-      }, { status: 404 });
+      if (!shop) {
+        return NextResponse.json({ 
+          error: 'Shop not found. Please install the app from Shopify first.' 
+        }, { status: 404 });
+      }
     }
 
     // Save connection
@@ -100,11 +69,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Trello connected successfully',
       member: { id: memberId, fullName: memberName },
     });
+
+    // Set cookie to remember shop (for cross-page persistence)
+    response.cookies.set('shopify_shop', shop.domain, {
+      httpOnly: false, // Frontend'den okunabilir olmalı
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+    });
+
+    return response;
   } catch (error: any) {
     console.error('Trello simple connect error:', error);
     return NextResponse.json(
@@ -113,4 +93,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

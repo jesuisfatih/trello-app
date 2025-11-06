@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Key, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
 import { Card } from '@/ui/components/Card'
@@ -16,6 +16,34 @@ export default function TrelloIntegrationPage() {
   const [connected, setConnected] = useState(false)
   const [memberInfo, setMemberInfo] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    checkConnection()
+  }, [])
+
+  async function checkConnection() {
+    try {
+      const response = await fetch('/api/trello/status')
+      const data = await response.json()
+      
+      if (data.connected && data.connection) {
+        setConnected(true)
+        // Get member info from Trello
+        const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
+        const memberUrl = `https://api.trello.com/1/members/me?key=${apiKey}&token=${data.connection.token}`
+        const memberResponse = await fetch(memberUrl)
+        if (memberResponse.ok) {
+          const member = await memberResponse.json()
+          setMemberInfo(member)
+        }
+      }
+    } catch (err) {
+      console.error('Connection check failed:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function handleConnect() {
     if (!token) {
@@ -70,11 +98,22 @@ export default function TrelloIntegrationPage() {
       setConnected(true)
       setMemberInfo(member)
       setToken('')
+      
+      // Refresh connection status
+      await checkConnection()
     } catch (err: any) {
       setError(err.message || 'Failed to connect to Trello')
     } finally {
       setConnecting(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   return (
