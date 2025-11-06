@@ -21,6 +21,36 @@ export default function TrelloIntegrationPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [useOAuth, setUseOAuth] = useState(true) // Default to OAuth 2.0
+  const [shopDomain, setShopDomain] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    let resolvedShop = params.get('shop')
+    const hostParam = params.get('host')
+
+    if (!resolvedShop && hostParam) {
+      try {
+        const decodedHost = atob(hostParam)
+        const match = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
+        if (match) {
+          resolvedShop = match[1]
+        }
+      } catch (err) {
+        const directMatch = hostParam.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
+        if (directMatch) {
+          resolvedShop = directMatch[1]
+        }
+      }
+    }
+
+    if (resolvedShop) {
+      setShopDomain(resolvedShop)
+    }
+  }, [])
 
   useEffect(() => {
     const success = searchParams.get('success')
@@ -41,11 +71,30 @@ export default function TrelloIntegrationPage() {
     try {
       setLoading(true)
       const sessionToken = await getSessionToken()
+
+      let url = '/api/trello/connect'
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        const hostParam = params.get('host')
+        const queryParts: string[] = []
+        if (hostParam) {
+          queryParts.push(`host=${encodeURIComponent(hostParam)}`)
+        }
+        if (shopDomain) {
+          queryParts.push(`shop=${encodeURIComponent(shopDomain)}`)
+        }
+        if (queryParts.length) {
+          url += `?${queryParts.join('&')}`
+        }
+      }
+
+      const headers: HeadersInit = {}
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`
+      }
       
-      const response = await fetch('/api/trello/connect', {
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-        },
+      const response = await fetch(url, {
+        headers,
       })
 
       if (response.ok) {
@@ -66,44 +115,31 @@ export default function TrelloIntegrationPage() {
     try {
       setConnecting(true)
       setError(null)
-      
+
       const sessionToken = await getSessionToken()
-      
-      if (!sessionToken) {
-        // Fallback: Get shop from URL or use manual token method
-        const urlParams = new URLSearchParams(window.location.search)
-        const host = urlParams.get('host')
-        
-        if (!host) {
-          setError('Unable to get session token. Please use manual token method or refresh the page.')
-          setConnecting(false)
-          return
-        }
 
-        // Try to extract shop from host
-        // Host format: base64(shop/admin/apps/{apiKey})
-        try {
-          const decodedHost = atob(host)
-          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
-          if (shopMatch) {
-            // Use manual token flow or show error
-            setError('Session token unavailable. Please use the manual token method below.')
-            setConnecting(false)
-            return
-          }
-        } catch (e) {
-          // Host is not base64 encoded, try direct
+      let url = '/api/trello/oauth/start'
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        const hostParam = params.get('host')
+        if (hostParam) {
+          params.set('host', hostParam)
         }
-
-        setError('Session token unavailable. Please use the manual token method.')
-        setConnecting(false)
-        return
+        if (shopDomain) {
+          params.set('shop', shopDomain)
+        }
+        if ([...params.keys()].length) {
+          url += `?${params.toString()}`
+        }
       }
 
-      const response = await fetch('/api/trello/oauth/start', {
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-        },
+      const headers: HeadersInit = {}
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`
+      }
+
+      const response = await fetch(url, {
+        headers,
       })
 
       if (!response.ok) {
@@ -140,21 +176,32 @@ export default function TrelloIntegrationPage() {
     try {
       const sessionToken = await getSessionToken()
       
-      // Build URL with host parameter if available (for shop domain fallback)
-      const urlParams = new URLSearchParams(window.location.search)
-      const host = urlParams.get('host')
+      // Build URL with host/shop parameters if available (for shop domain fallback)
+      let hostParam: string | null = null
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        hostParam = urlParams.get('host')
+      }
+
       let url = '/api/trello/connect'
-      if (host) {
-        url += `?host=${encodeURIComponent(host)}`
+      const queryParts: string[] = []
+      if (hostParam) {
+        queryParts.push(`host=${encodeURIComponent(hostParam)}`)
+      }
+      if (shopDomain) {
+        queryParts.push(`shop=${encodeURIComponent(shopDomain)}`)
+      }
+      if (queryParts.length) {
+        url += `?${queryParts.join('&')}`
       }
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': sessionToken ? `Bearer ${sessionToken}` : 'Bearer null',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, shopDomain }),
       })
 
       const data = await response.json()
