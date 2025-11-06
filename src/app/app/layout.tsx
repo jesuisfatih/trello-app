@@ -3,6 +3,8 @@
 import { ReactNode } from 'react'
 import Script from 'next/script'
 
+export const dynamic = 'force-dynamic'
+
 // MUI Imports
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter'
 import { ThemeProvider } from '@mui/material/styles'
