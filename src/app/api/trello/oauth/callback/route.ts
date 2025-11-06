@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSessionToken } from '@/lib/shopify';
 import prisma from '@/lib/db';
 
 /**
@@ -12,6 +11,7 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
+    const hostValue = searchParams.get('host') || request.cookies.get('shopify_host')?.value || null;
 
     // Handle OAuth errors
     if (error) {
@@ -148,7 +148,28 @@ export async function GET(request: NextRequest) {
       '/app/integrations/trello?success=true',
       process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'
     );
-    return NextResponse.redirect(redirectUrl);
+
+    const response = NextResponse.redirect(redirectUrl);
+
+    if (hostValue) {
+      response.cookies.set('shopify_host', hostValue, {
+        httpOnly: false,
+        secure: request.nextUrl.protocol === 'https:',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 365,
+        path: '/',
+      });
+    }
+
+    response.cookies.set('shopify_shop', shopDomain, {
+      httpOnly: false,
+      secure: request.nextUrl.protocol === 'https:',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+      path: '/',
+    });
+
+    return response;
   } catch (error: any) {
     console.error('Trello OAuth 2.0 callback error:', error);
     const redirectUrl = new URL(

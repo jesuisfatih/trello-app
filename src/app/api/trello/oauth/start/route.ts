@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { validateSessionToken } from '@/lib/shopify';
-import prisma from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server'
+import { validateSessionToken } from '@/lib/shopify'
+import prisma from '@/lib/db'
+import { extractShopFromHost, getShopDomainFromRequest } from '@/lib/shop'
 
 /**
  * Atlassian OAuth 2.0 Start Handler
@@ -8,61 +9,42 @@ import prisma from '@/lib/db';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get shop from session
-    const authHeader = request.headers.get('authorization');
-    let shopDomain: string | null = null;
+    const hostQueryParam = request.nextUrl.searchParams.get('host')
+    const shopQueryParam = request.nextUrl.searchParams.get('shop')
+    const cookieHost = request.cookies.get('shopify_host')?.value || null
+    const cookieShop = request.cookies.get('shopify_shop')?.value || null
+
+    let hostValue = hostQueryParam || cookieHost
+    let shopDomain: string | null = null
+
+    // Get shop from session token if available
+    const authHeader = request.headers.get('authorization')
 
     if (authHeader?.startsWith('Bearer ') && authHeader !== 'Bearer null') {
       try {
-        const sessionToken = authHeader.substring(7);
+        const sessionToken = authHeader.substring(7)
         if (sessionToken && sessionToken !== 'null') {
-          const payload = await validateSessionToken(sessionToken);
-          shopDomain = payload.dest.replace('https://', '');
+          const payload = await validateSessionToken(sessionToken)
+          shopDomain = payload.dest.replace('https://', '')
         }
       } catch (tokenError) {
-        console.warn('Session token validation failed:', tokenError);
+        console.warn('Session token validation failed:', tokenError)
       }
     }
 
-    // Fallback: Try to get shop from URL or cookies
+    // Fallback: Try to get shop from URL, cookies, or host
     if (!shopDomain) {
-      const urlParams = request.nextUrl.searchParams;
-      const host = urlParams.get('host');
-      
-      // Try to decode host to get shop
-      if (host) {
-        try {
-          const decodedHost = Buffer.from(host, 'base64').toString();
-          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
-          if (shopMatch) {
-            shopDomain = shopMatch[1];
-          }
-          if (!shopDomain) {
-            const storeMatch = decodedHost.match(/store\/([a-zA-Z0-9-]+)/);
-            if (storeMatch) {
-              shopDomain = `${storeMatch[1]}.myshopify.com`;
-            }
-          }
-        } catch (e) {
-          // Host is not base64, try direct match
-          const directMatch = host.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
-          if (directMatch) {
-            shopDomain = directMatch[1];
-          }
-          if (!shopDomain) {
-            const storeMatch = host.match(/store\/([a-zA-Z0-9-]+)/);
-            if (storeMatch) {
-              shopDomain = `${storeMatch[1]}.myshopify.com`;
-            }
-          }
-        }
-      }
+      const { shopDomain: inferredShop } = getShopDomainFromRequest({
+        hostParam: hostQueryParam || cookieHost,
+        shopParam: shopQueryParam || cookieShop,
+      })
+      shopDomain = inferredShop
     }
 
     if (!shopDomain) {
-      const explicitShop = request.nextUrl.searchParams.get('shop');
-      if (explicitShop) {
-        shopDomain = explicitShop;
+      const shopFromHost = extractShopFromHost(hostValue || '')
+      if (shopFromHost) {
+        shopDomain = shopFromHost
       }
     }
 
@@ -75,21 +57,21 @@ export async function GET(request: NextRequest) {
 
     const shop = await prisma.shop.findUnique({
       where: { domain: shopDomain },
-    });
+    })
 
     if (!shop) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
     }
 
-    const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY;
-    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'}/api/trello/oauth/callback`;
-    const scope = process.env.TRELLO_SCOPE || 'read:board write:board read:card write:card';
+    const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY
+    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'}/api/trello/oauth/callback`
+    const scope = process.env.TRELLO_SCOPE || 'read:board write:board read:card write:card'
 
     if (!clientId) {
       return NextResponse.json(
         { error: 'Missing Trello OAuth configuration' },
         { status: 500 }
-      );
+      )
     }
 
     // Create state parameter with shop domain
@@ -98,24 +80,44 @@ export async function GET(request: NextRequest) {
         shop: shopDomain,
         timestamp: Date.now(),
       })
-    ).toString('base64');
+    ).toString('base64')
 
     // Build authorization URL for Atlassian OAuth 2.0
-    const authUrl = new URL('https://auth.atlassian.com/authorize');
-    authUrl.searchParams.set('audience', 'api.atlassian.com');
-    authUrl.searchParams.set('client_id', clientId);
-    authUrl.searchParams.set('scope', scope);
-    authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('prompt', 'consent');
+    const authUrl = new URL('https://auth.atlassian.com/authorize')
+    authUrl.searchParams.set('audience', 'api.atlassian.com')
+    authUrl.searchParams.set('client_id', clientId)
+    authUrl.searchParams.set('scope', scope)
+    authUrl.searchParams.set('redirect_uri', redirectUri)
+    authUrl.searchParams.set('state', state)
+    authUrl.searchParams.set('response_type', 'code')
+    authUrl.searchParams.set('prompt', 'consent')
 
-    return NextResponse.json({ authorizeUrl: authUrl.toString() });
+    const response = NextResponse.json({ authorizeUrl: authUrl.toString() })
+
+    if (hostValue) {
+      response.cookies.set('shopify_host', hostValue, {
+        httpOnly: false,
+        secure: request.nextUrl.protocol === 'https:',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 365,
+        path: '/',
+      })
+    }
+
+    response.cookies.set('shopify_shop', shopDomain, {
+      httpOnly: false,
+      secure: request.nextUrl.protocol === 'https:',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+      path: '/',
+    })
+
+    return response
   } catch (error: any) {
-    console.error('Trello OAuth 2.0 start error:', error);
+    console.error('Trello OAuth 2.0 start error:', error)
     return NextResponse.json(
       { error: error.message || 'OAuth initialization failed' },
       { status: 500 }
-    );
+    )
   }
 }

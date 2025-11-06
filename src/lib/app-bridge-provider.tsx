@@ -1,6 +1,22 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { normalizeShopDomain } from '@/lib/shop';
+
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+const SHOPIFY_API_KEY = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
+
+const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[2]) : null;
+};
+
+const setClientCookie = (name: string, value: string) => {
+  if (typeof document === 'undefined') return;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${secure}`;
+};
 
 interface AppBridgeContextType {
   app: any;
@@ -32,6 +48,42 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
             return;
           }
           await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const hostFromUrl = urlParams.get('host');
+        const shopFromUrl = urlParams.get('shop');
+
+        if (hostFromUrl) {
+          setClientCookie('shopify_host', hostFromUrl);
+        }
+
+        if (shopFromUrl) {
+          const normalizedShop = normalizeShopDomain(shopFromUrl);
+          if (normalizedShop) {
+            setClientCookie('shopify_shop', normalizedShop);
+          }
+        }
+
+        const hostFromCookie = getCookie('shopify_host');
+        const host = hostFromUrl || hostFromCookie;
+
+        if (!host) {
+          console.warn('Shopify host parameter missing. App Bridge cannot initialise.');
+          setLoading(false);
+          return;
+        }
+
+        if ((window as any).shopify?.config) {
+          try {
+            (window as any).shopify.config({
+              apiKey: SHOPIFY_API_KEY,
+              host,
+              forceRedirect: true,
+            });
+          } catch (configError) {
+            console.warn('Failed to configure App Bridge:', configError);
+          }
         }
 
         const shopifyApp = (window as any).shopify;
