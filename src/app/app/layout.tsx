@@ -22,15 +22,24 @@ import { ErrorBoundary } from '@/ui/components/ErrorBoundary'
 import { VerticalNavProvider } from '@menu/contexts/verticalNavContext'
 import { SettingsProvider } from '@core/contexts/settingsContext'
 
-// Theme Imports
-import themeConfig from '@core/theme'
-
 // CSS Imports
 import 'react-perfect-scrollbar/dist/css/styles.css'
 
-// Create Vuexy theme with type assertion
-const vuexyThemeConfig = themeConfig({ skin: 'default' }, 'light', 'ltr')
-const muiTheme = createTheme(vuexyThemeConfig as any)
+// Simple MUI theme (no complex Vuexy theme to avoid SSR issues)
+const muiTheme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#3B82F6',
+    },
+    secondary: {
+      main: '#8B5CF6',
+    },
+  },
+  shape: {
+    borderRadius: 6,
+  },
+})
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
