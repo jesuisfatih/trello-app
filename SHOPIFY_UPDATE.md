@@ -16,17 +16,17 @@ Yeni kapsamlı scopes eklendi:
 
 ### 3. Domain Güncellemesi
 - **Eski**: `trello-engine.dev`
-- **Yeni**: `trello-engine.com`
+- **Yeni**: `trello-engine.dev`
 
 ## 📋 Shopify Partner Dashboard'da Yapılacaklar
 
 ### 1. App Settings
 1. [Shopify Partner Dashboard](https://partners.shopify.com) → Your App → App Setup
-2. **App URL**: `https://trello-engine.com`
+2. **App URL**: `https://trello-engine.dev`
 3. **Allowed redirection URL(s)**:
-   - `https://trello-engine.com/api/shopify/auth/callback`
-   - `https://trello-engine.com/auth/callback`
-   - `https://trello-engine.com/api/auth/callback`
+   - `https://trello-engine.dev/api/shopify/auth/callback`
+   - `https://trello-engine.dev/auth/callback`
+   - `https://trello-engine.dev/api/auth/callback`
 
 ### 2. API Access Scopes
 Aşağıdaki scopes'ları ekleyin:
@@ -54,7 +54,7 @@ Webhook API Version: **2026-01**
 # Shopify Configuration
 SHOPIFY_API_KEY=cdbe8c337ddeddaa887cffff22dca575
 SHOPIFY_API_SECRET=your_secret_here
-SHOPIFY_APP_URL=https://trello-engine.com
+SHOPIFY_APP_URL=https://trello-engine.dev
 SHOPIFY_API_VERSION=2026-01
 SHOPIFY_SCOPES=read_products,write_products,read_orders,write_orders,read_customers,write_customers,read_inventory,write_inventory,read_content,write_content
 
@@ -80,7 +80,7 @@ ssh root@46.224.63.208 'cd /opt/shopytrello && git pull origin main && docker co
 
 ## ✅ Test
 
-1. **Health Check**: `https://trello-engine.com/api/health`
+1. **Health Check**: `https://trello-engine.dev/api/health`
 2. **Install App**: Shopify Partner Dashboard → Test on development store
 3. **Verify Scopes**: App içinde `/app/settings` sayfasında scopes'ları kontrol edin
 
