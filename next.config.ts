@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
   
   experimental: {
     ppr: false,
-    staticGenerationOptions: {
-      autoPrerender: false,
-    },
   },
 
   images: {
