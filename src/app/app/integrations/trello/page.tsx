@@ -1,182 +1,31 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { Link2, CheckCircle2, XCircle, ExternalLink, Key } from 'lucide-react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Key, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
 import { Card } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Card'
-import { useAppBridge } from '@/lib/app-bridge-provider'
 
 export const dynamic = 'force-dynamic'
 
 export default function TrelloIntegrationPage() {
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const { getSessionToken } = useAppBridge()
   const [token, setToken] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
-  const [connectionInfo, setConnectionInfo] = useState<any>(null)
+  const [memberInfo, setMemberInfo] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [useOAuth, setUseOAuth] = useState(true) // Default to OAuth 2.0
-  const [shopDomain, setShopDomain] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const params = new URLSearchParams(window.location.search)
-    let resolvedShop = params.get('shop')
-    const hostParam = params.get('host')
-
-    if (!resolvedShop && hostParam) {
-      try {
-        const decodedHost = atob(hostParam)
-        const match = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
-        if (match) {
-          resolvedShop = match[1]
-        } else {
-          const storeMatch = decodedHost.match(/store\/([a-zA-Z0-9-]+)/)
-          if (storeMatch) {
-            resolvedShop = `${storeMatch[1]}.myshopify.com`
-          }
-        }
-      } catch (err) {
-        const directMatch = hostParam.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
-        if (directMatch) {
-          resolvedShop = directMatch[1]
-        } else {
-          const storeMatch = hostParam.match(/store\/([a-zA-Z0-9-]+)/)
-          if (storeMatch) {
-            resolvedShop = `${storeMatch[1]}.myshopify.com`
-          }
-        }
-      }
-    }
-
-    if (resolvedShop) {
-      setShopDomain(resolvedShop)
-    }
-  }, [])
-
-  useEffect(() => {
-    const success = searchParams.get('success')
-    const errorParam = searchParams.get('error')
-    
-    if (success === 'true') {
-      setConnected(true)
-      setError(null)
-      checkConnection()
-    } else if (errorParam) {
-      setError('OAuth connection failed. Please try again.')
-    }
-    
-    checkConnection()
-  }, [searchParams])
-
-  async function checkConnection() {
-    try {
-      setLoading(true)
-      const sessionToken = await getSessionToken()
-
-      let url = '/api/trello/connect'
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search)
-        const hostParam = params.get('host')
-        const queryParts: string[] = []
-        if (hostParam) {
-          queryParts.push(`host=${encodeURIComponent(hostParam)}`)
-        }
-        if (shopDomain) {
-          queryParts.push(`shop=${encodeURIComponent(shopDomain)}`)
-        }
-        if (queryParts.length) {
-          url += `?${queryParts.join('&')}`
-        }
-      }
-
-      const headers: HeadersInit = {}
-      if (sessionToken) {
-        headers['Authorization'] = `Bearer ${sessionToken}`
-      }
-      
-      const response = await fetch(url, {
-        headers,
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setConnected(data.connected)
-        if (data.connected && data.connection) {
-          setConnectionInfo(data.connection)
-        }
-      }
-    } catch (err) {
-      console.error('Check failed:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleOAuthConnect() {
-    try {
-      setConnecting(true)
-      setError(null)
-
-      const sessionToken = await getSessionToken()
-
-      let url = '/api/trello/oauth/start'
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search)
-        const hostParam = params.get('host')
-        if (hostParam) {
-          params.set('host', hostParam)
-        }
-        if (shopDomain) {
-          params.set('shop', shopDomain)
-        }
-        if ([...params.keys()].length) {
-          url += `?${params.toString()}`
-        }
-      }
-
-      const headers: HeadersInit = {}
-      if (sessionToken) {
-        headers['Authorization'] = `Bearer ${sessionToken}`
-      }
-
-      const response = await fetch(url, {
-        headers,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to start OAuth flow')
-      }
-
-      const data = await response.json()
-      if (data.authorizeUrl) {
-        // Redirect to OAuth authorization
-        window.location.href = data.authorizeUrl
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to start OAuth')
-      setConnecting(false)
-    }
-  }
-
-  async function handleManualConnect() {
+  async function handleConnect() {
     if (!token) {
       setError('Please enter your Trello token')
       return
     }
 
     // Validate token format
-    if (!token.startsWith('ATTA') && !token.match(/^[a-zA-Z0-9]{64}$/)) {
-      setError('Invalid token format. Trello tokens should start with "ATTA" or be 64 characters long.')
+    if (!token.startsWith('ATTA')) {
+      setError('Invalid token format. Trello tokens should start with "ATTA".')
       return
     }
 
@@ -184,85 +33,57 @@ export default function TrelloIntegrationPage() {
     setError(null)
 
     try {
-      const sessionToken = await getSessionToken()
+      // Direct API call to Trello (no shop domain needed)
+      const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
+      const testUrl = `https://api.trello.com/1/members/me?key=${apiKey}&token=${token}`
       
-      // Build URL with host/shop parameters if available (for shop domain fallback)
-      let hostParam: string | null = null
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search)
-        hostParam = urlParams.get('host')
+      const testResponse = await fetch(testUrl)
+      
+      if (!testResponse.ok) {
+        if (testResponse.status === 401) {
+          throw new Error('Invalid Trello token. Please check your token and try again.')
+        }
+        throw new Error(`Trello API error: ${testResponse.status}`)
       }
 
-      let url = '/api/trello/connect'
-      const queryParts: string[] = []
-      if (hostParam) {
-        queryParts.push(`host=${encodeURIComponent(hostParam)}`)
-      }
-      if (shopDomain) {
-        queryParts.push(`shop=${encodeURIComponent(shopDomain)}`)
-      }
-      if (queryParts.length) {
-        url += `?${queryParts.join('&')}`
-      }
-
-      const response = await fetch(url, {
+      const member = await testResponse.json()
+      
+      // Save to our backend (with simple cookie-based shop identification)
+      const saveResponse = await fetch('/api/trello/connect/simple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         },
-        body: JSON.stringify({ token, shopDomain }),
+        body: JSON.stringify({
+          token,
+          memberId: member.id,
+          memberName: member.fullName || member.username,
+        }),
       })
 
-      const data = await response.json()
+      const saveData = await saveResponse.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Connection failed')
+      if (!saveResponse.ok) {
+        throw new Error(saveData.error || 'Failed to save connection')
       }
 
       setConnected(true)
+      setMemberInfo(member)
       setToken('')
-      await checkConnection()
     } catch (err: any) {
-      setError(err.message || 'Failed to connect to Trello. Please check your token and try again.')
+      setError(err.message || 'Failed to connect to Trello')
     } finally {
       setConnecting(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Trello Integration</h1>
-        <p className="text-gray-600">Connect your Trello account to sync boards, lists, and cards</p>
+        <h1 className="text-3xl font-bold text-gray-900">Connect to Trello</h1>
+        <p className="text-gray-600">Enter your Trello token to sync boards, lists, and cards</p>
       </div>
-
-      {/* Connection Status */}
-      {connected && (
-        <Card className="border-green-200 bg-green-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-              <div>
-                <h3 className="font-semibold text-green-900">Connected to Trello</h3>
-                {connectionInfo && (
-                  <p className="text-sm text-green-700">Member ID: {connectionInfo.memberId}</p>
-                )}
-              </div>
-            </div>
-            <Badge variant="success">Active</Badge>
-          </div>
-        </Card>
-      )}
 
       {/* Error Message */}
       {error && (
@@ -274,90 +95,87 @@ export default function TrelloIntegrationPage() {
         </Card>
       )}
 
+      {/* Success Message */}
+      {connected && memberInfo && (
+        <Card className="border-green-200 bg-green-50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+              <div>
+                <h3 className="font-semibold text-green-900">Connected to Trello</h3>
+                <p className="text-sm text-green-700">
+                  Logged in as: {memberInfo.fullName || memberInfo.username}
+                </p>
+              </div>
+            </div>
+            <Badge variant="success">Active</Badge>
+          </div>
+        </Card>
+      )}
+
       {!connected && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* OAuth 2.0 Option */}
-          <Card hover padding="lg">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <Link2 className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">OAuth 2.0 (Recommended)</h3>
-                <p className="text-sm text-gray-500">Secure and automatic</p>
-              </div>
+        <Card padding="lg">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <Key className="h-6 w-6 text-white" />
             </div>
-            <p className="text-sm text-gray-600 mb-6">
-              Connect using Atlassian OAuth 2.0. This is the recommended method as it's more secure and handles token refresh automatically.
-            </p>
-            <Button
-              onClick={handleOAuthConnect}
-              disabled={connecting}
-              className="w-full"
-              variant="primary"
-            >
-              {connecting ? 'Connecting...' : 'Connect with OAuth 2.0'}
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Button>
-          </Card>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Manual Token Connection</h3>
+              <p className="text-sm text-gray-500">Simple and direct</p>
+            </div>
+          </div>
+          
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-900 mb-3 text-sm">
+              How to get your Trello token:
+            </h4>
+            <ol className="list-decimal list-inside space-y-2 text-blue-800 text-sm">
+              <li>
+                Visit:{' '}
+                <a
+                  href="https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&name=ShopiTrello&key=e2dc5f7dcce322a3945a62c228c31fa1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-blue-900 font-medium"
+                >
+                  Trello Authorization
+                  <ExternalLink className="inline h-3 w-3 ml-1" />
+                </a>
+              </li>
+              <li>
+                API Key: <code className="bg-white px-2 py-1 rounded text-xs font-mono">e2dc5f7dcce322a3945a62c228c31fa1</code>
+              </li>
+              <li>Click "Allow" to grant permissions</li>
+              <li>Copy the token that appears</li>
+              <li>Paste it below</li>
+            </ol>
+          </div>
 
-          {/* Manual Token Option */}
-          <Card hover padding="lg">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg flex items-center justify-center">
-                <Key className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Manual Token</h3>
-                <p className="text-sm text-gray-500">Advanced option</p>
-              </div>
-            </div>
-            
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-2 text-sm">
-                How to get your Trello token:
-              </h4>
-              <ol className="list-decimal list-inside space-y-1 text-blue-800 text-xs">
-                <li>
-                  Visit:{' '}
-                  <a
-                    href="https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&name=ShopiTrello&key=e2dc5f7dcce322a3945a62c228c31fa1"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-blue-900"
-                  >
-                    Trello Authorization
-                  </a>
-                </li>
-                <li>API Key: <code className="bg-white px-1 py-0.5 rounded text-xs">e2dc5f7dcce322a3945a62c228c31fa1</code></li>
-                <li>Grant permissions and copy the token</li>
-                <li>Paste it below</li>
-              </ol>
-            </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Trello Token
+            </label>
+            <input
+              type="text"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="ATTA..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">Token should start with "ATTA"</p>
+          </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Trello Token
-              </label>
-              <input
-                type="text"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="ATTAxxxxx..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <Button
-              onClick={handleManualConnect}
-              disabled={connecting || !token}
-              className="w-full"
-              variant="outline"
-            >
-              {connecting ? 'Connecting...' : 'Connect with Token'}
-            </Button>
-          </Card>
-        </div>
+          <Button
+            onClick={handleConnect}
+            disabled={connecting || !token}
+            isLoading={connecting}
+            className="w-full"
+            variant="primary"
+            size="lg"
+          >
+            {connecting ? 'Connecting...' : 'Connect Trello'}
+          </Button>
+        </Card>
       )}
 
       {connected && (
