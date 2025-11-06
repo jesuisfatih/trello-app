@@ -11,7 +11,7 @@ export const shopify = shopifyApi({
   scopes: (process.env.SHOPIFY_SCOPES || '').split(','),
   hostName: new URL(process.env.SHOPIFY_APP_URL || 'https://app.example.com').hostname,
   hostScheme: 'https',
-  apiVersion: (process.env.SHOPIFY_API_VERSION as any) || '2025-10',
+  apiVersion: (process.env.SHOPIFY_API_VERSION as any) || '2026-01',
   isEmbeddedApp: true,
   logger: {
     level: process.env.NODE_ENV === 'production' ? LogSeverity.Warning : LogSeverity.Debug,

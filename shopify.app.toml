@@ -2,7 +2,7 @@
 
 name = "ShopiTrello"
 client_id = "cdbe8c337ddeddaa887cffff22dca575"
-application_url = "https://trello-engine.dev"
+application_url = "https://trello-engine.com"
 embedded = true
 
 [build]
@@ -10,18 +10,18 @@ automatically_update_urls_on_dev = false
 dev_store_url = ""
 
 [access_scopes]
-scopes = "read_products,read_orders,read_customers,write_products"
+scopes = "read_products,write_products,read_orders,write_orders,read_customers,write_customers,read_inventory,write_inventory,read_content,write_content"
 use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
-  "https://trello-engine.dev/api/shopify/auth/callback",
-  "https://trello-engine.dev/auth/callback",
-  "https://trello-engine.dev/api/auth/callback"
+  "https://trello-engine.com/api/shopify/auth/callback",
+  "https://trello-engine.com/auth/callback",
+  "https://trello-engine.com/api/auth/callback"
 ]
 
 [webhooks]
-api_version = "2025-10"
+api_version = "2026-01"
 
 [[webhooks.subscriptions]]
 topics = [ "app/uninstalled" ]

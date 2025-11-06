@@ -52,6 +52,7 @@ model TrelloConnection {
   shopId          String
   trelloMemberId  String    // Trello user/member ID
   token           String    // Trello OAuth access token
+  refreshToken    String?   // OAuth 2.0 refresh token
   scope           String    // read,write,account
   expiresAt       DateTime? // null = never expires
   

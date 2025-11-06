@@ -1,6 +1,6 @@
 /**
  * Shopify GraphQL queries and mutations
- * API Version: 2025-10
+ * API Version: 2026-01
  */
 
 export const SHOP_QUERY = `

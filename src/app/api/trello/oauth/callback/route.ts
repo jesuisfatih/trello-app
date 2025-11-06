@@ -1,136 +1,160 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OAuth from 'oauth-1.0a';
-import crypto from 'crypto';
-import { TrelloClient } from '@/lib/trello';
+import { validateSessionToken } from '@/lib/shopify';
 import prisma from '@/lib/db';
 
+/**
+ * Atlassian OAuth 2.0 Callback Handler
+ * This handles the OAuth 2.0 authorization code flow for Atlassian/Trello
+ */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const oauthToken = searchParams.get('oauth_token');
-    const oauthVerifier = searchParams.get('oauth_verifier');
+    const code = searchParams.get('code');
     const state = searchParams.get('state');
+    const error = searchParams.get('error');
 
-    if (!oauthToken || !oauthVerifier || !state) {
+    // Handle OAuth errors
+    if (error) {
+      console.error('OAuth error:', error);
+      const redirectUrl = new URL(
+        '/app/integrations/trello?error=oauth_failed',
+        process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'
+      );
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (!code || !state) {
       return NextResponse.json(
-        { error: 'Missing OAuth parameters' },
+        { error: 'Missing authorization code or state' },
         { status: 400 }
       );
     }
 
-    // Decode state to get token secret
-    const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-    const oauthTokenSecret = stateData.secret;
-
-    const apiKey = process.env.TRELLO_API_KEY;
-    const apiSecret = process.env.TRELLO_API_SECRET;
-
-    if (!apiKey || !apiSecret) {
+    // Decode state to get shop domain
+    let shopDomain: string;
+    try {
+      const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+      shopDomain = stateData.shop;
+    } catch (e) {
       return NextResponse.json(
-        { error: 'Missing Trello configuration' },
+        { error: 'Invalid state parameter' },
+        { status: 400 }
+      );
+    }
+
+    // Get shop from database
+    const shop = await prisma.shop.findUnique({
+      where: { domain: shopDomain },
+    });
+
+    if (!shop) {
+      return NextResponse.json(
+        { error: 'Shop not found' },
+        { status: 404 }
+      );
+    }
+
+    // Exchange authorization code for access token
+    const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY;
+    const clientSecret = process.env.TRELLO_CLIENT_SECRET || process.env.TRELLO_API_SECRET;
+    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'}/api/trello/oauth/callback`;
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.json(
+        { error: 'Missing Trello OAuth configuration' },
         { status: 500 }
       );
     }
 
-    const oauth = new OAuth({
-      consumer: {
-        key: apiKey,
-        secret: apiSecret,
-      },
-      signature_method: 'HMAC-SHA1',
-      hash_function(baseString, key) {
-        return crypto.createHmac('sha1', key).update(baseString).digest('base64');
-      },
-    });
-
-    const requestData = {
-      url: TrelloClient.getAccessTokenUrl(apiKey),
-      method: 'POST',
-    };
-
-    const token = {
-      key: oauthToken,
-      secret: oauthTokenSecret,
-    };
-
-    const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
-
-    // Exchange for access token
-    const response = await fetch(`${requestData.url}?oauth_verifier=${oauthVerifier}`, {
+    // Exchange code for token
+    const tokenResponse = await fetch('https://auth.atlassian.com/oauth/token', {
       method: 'POST',
       headers: {
-        ...authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Token exchange failed:', errorText);
+      throw new Error('Failed to exchange authorization code for token');
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+    const refreshToken = tokenData.refresh_token;
+    const expiresIn = tokenData.expires_in;
+
+    // Get user info from Atlassian
+    const userResponse = await fetch('https://api.atlassian.com/me', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to obtain access token');
+    if (!userResponse.ok) {
+      throw new Error('Failed to get user info');
     }
 
-    const text = await response.text();
-    const params = new URLSearchParams(text);
-    const accessToken = params.get('oauth_token');
-    const accessTokenSecret = params.get('oauth_token_secret');
+    const userInfo = await userResponse.json();
 
-    if (!accessToken || !accessTokenSecret) {
-      throw new Error('Invalid access token response');
-    }
+    // Calculate expiration date
+    const expiresAt = expiresIn
+      ? new Date(Date.now() + expiresIn * 1000)
+      : null;
 
-    // Get member info
-    const trelloClient = new TrelloClient({
-      apiKey,
-      apiSecret,
-      token: accessToken,
+    // Store Trello connection
+    await prisma.trelloConnection.upsert({
+      where: { shopId: shop.id },
+      create: {
+        shopId: shop.id,
+        trelloMemberId: userInfo.account_id || userInfo.email,
+        token: accessToken,
+        refreshToken: refreshToken,
+        scope: tokenData.scope || 'read,write',
+        expiresAt: expiresAt,
+      },
+      update: {
+        token: accessToken,
+        refreshToken: refreshToken,
+        trelloMemberId: userInfo.account_id || userInfo.email,
+        scope: tokenData.scope || 'read,write',
+        expiresAt: expiresAt,
+      },
     });
 
-    const member = await trelloClient.request('GET', '/1/members/me');
-
-    // Get shop context from session/cookie (simplified here)
-    // In production, you'd get this from App Bridge session
-    const shopDomain = request.cookies.get('shopify_shop')?.value;
-
-    if (shopDomain) {
-      const shop = await prisma.shop.findUnique({
-        where: { domain: shopDomain },
-      });
-
-      if (shop) {
-        // Store Trello connection
-        await prisma.trelloConnection.upsert({
-          where: { shopId: shop.id },
-          create: {
-            shopId: shop.id,
-            trelloMemberId: member.id,
-            token: accessToken,
-            scope: process.env.TRELLO_DEFAULT_SCOPES || 'read,write',
-            expiresAt: null, // never expires
-          },
-          update: {
-            token: accessToken,
-            trelloMemberId: member.id,
-            scope: process.env.TRELLO_DEFAULT_SCOPES || 'read,write',
-          },
-        });
-
-        await prisma.eventLog.create({
-          data: {
-            shopId: shop.id,
-            source: 'trello',
-            type: 'oauth_connected',
-            payload: { memberId: member.id, memberName: member.fullName },
-            status: 'success',
-          },
-        });
-      }
-    }
+    await prisma.eventLog.create({
+      data: {
+        shopId: shop.id,
+        source: 'trello',
+        type: 'oauth_connected',
+        payload: {
+          memberId: userInfo.account_id,
+          memberName: userInfo.name || userInfo.email,
+        },
+        status: 'success',
+      },
+    });
 
     // Redirect to success page
-    const redirectUrl = new URL('/app/integrations/trello?success=true', process.env.SHOPIFY_APP_URL);
+    const redirectUrl = new URL(
+      '/app/integrations/trello?success=true',
+      process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'
+    );
     return NextResponse.redirect(redirectUrl);
   } catch (error: any) {
-    console.error('Trello OAuth callback error:', error);
-    const redirectUrl = new URL('/app/integrations/trello?error=oauth_failed', process.env.SHOPIFY_APP_URL);
+    console.error('Trello OAuth 2.0 callback error:', error);
+    const redirectUrl = new URL(
+      '/app/integrations/trello?error=oauth_failed',
+      process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'
+    );
     return NextResponse.redirect(redirectUrl);
   }
 }
-

@@ -1,84 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OAuth from 'oauth-1.0a';
-import crypto from 'crypto';
-import { TrelloClient } from '@/lib/trello';
+import { validateSessionToken } from '@/lib/shopify';
+import prisma from '@/lib/db';
 
+/**
+ * Atlassian OAuth 2.0 Start Handler
+ * Initiates the OAuth 2.0 authorization code flow
+ */
 export async function GET(request: NextRequest) {
   try {
-    const apiKey = process.env.TRELLO_API_KEY;
-    const apiSecret = process.env.TRELLO_API_SECRET;
-    const callbackUrl = process.env.TRELLO_OAUTH_CALLBACK_URL;
-    const scope = process.env.TRELLO_DEFAULT_SCOPES || 'read,write';
-    const expiration = process.env.TRELLO_TOKEN_EXPIRATION || 'never';
+    // Get shop from session
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!apiKey || !apiSecret || !callbackUrl) {
+    const sessionToken = authHeader.substring(7);
+    const payload = await validateSessionToken(sessionToken);
+    const shopDomain = payload.dest.replace('https://', '');
+
+    const shop = await prisma.shop.findUnique({
+      where: { domain: shopDomain },
+    });
+
+    if (!shop) {
+      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+    }
+
+    const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY;
+    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'}/api/trello/oauth/callback`;
+    const scope = process.env.TRELLO_SCOPE || 'read:board write:board read:card write:card';
+
+    if (!clientId) {
       return NextResponse.json(
         { error: 'Missing Trello OAuth configuration' },
         { status: 500 }
       );
     }
 
-    const oauth = new OAuth({
-      consumer: {
-        key: apiKey,
-        secret: apiSecret,
-      },
-      signature_method: 'HMAC-SHA1',
-      hash_function(baseString, key) {
-        return crypto.createHmac('sha1', key).update(baseString).digest('base64');
-      },
-    });
+    // Create state parameter with shop domain
+    const state = Buffer.from(
+      JSON.stringify({
+        shop: shopDomain,
+        timestamp: Date.now(),
+      })
+    ).toString('base64');
 
-    const requestData = {
-      url: TrelloClient.getRequestTokenUrl(apiKey),
-      method: 'POST',
-    };
+    // Build authorization URL for Atlassian OAuth 2.0
+    const authUrl = new URL('https://auth.atlassian.com/authorize');
+    authUrl.searchParams.set('audience', 'api.atlassian.com');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('scope', scope);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('prompt', 'consent');
 
-    const authHeader = oauth.toHeader(oauth.authorize(requestData));
-
-    // Get request token
-    const response = await fetch(requestData.url, {
-      method: 'POST',
-      headers: {
-        ...authHeader,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to obtain request token');
-    }
-
-    const text = await response.text();
-    const params = new URLSearchParams(text);
-    const oauthToken = params.get('oauth_token');
-    const oauthTokenSecret = params.get('oauth_token_secret');
-
-    if (!oauthToken || !oauthTokenSecret) {
-      throw new Error('Invalid request token response');
-    }
-
-    // Store token secret temporarily (in production, use Redis or session)
-    // For now, we'll pass it as a state parameter (not recommended for production)
-    const state = Buffer.from(JSON.stringify({
-      secret: oauthTokenSecret,
-      timestamp: Date.now(),
-    })).toString('base64');
-
-    // Build authorization URL
-    const authorizeUrl = TrelloClient.getAuthorizeUrl(oauthToken, {
-      name: 'ShopiTrello',
-      scope,
-      expiration,
-      callbackUrl: `${callbackUrl}?state=${state}`,
-    });
-
-    return NextResponse.json({ authorizeUrl });
+    return NextResponse.json({ authorizeUrl: authUrl.toString() });
   } catch (error: any) {
-    console.error('Trello OAuth start error:', error);
+    console.error('Trello OAuth 2.0 start error:', error);
     return NextResponse.json(
       { error: error.message || 'OAuth initialization failed' },
       { status: 500 }
     );
   }
 }
-
