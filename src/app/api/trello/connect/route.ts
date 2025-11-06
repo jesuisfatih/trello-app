@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSessionToken } from '@/lib/shopify';
 import prisma from '@/lib/db';
-import { createTrelloClient } from '@/lib/trello';
 
 /**
  * Manual Trello connection with API Key + Token
@@ -87,30 +86,41 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const client = createTrelloClient(token);
-      
-      // Test API call with better error handling
+      // Direct API call to test token (simpler and more reliable)
       let member;
       try {
-        member = await client.request('GET', '/1/members/me');
-      } catch (apiError: any) {
-        console.error('Trello API request failed:', {
-          error: apiError.message,
-          apiKey: apiKey ? `${apiKey.substring(0, 8)}...` : 'MISSING',
-          tokenPrefix: token.substring(0, 8),
-        });
+        const testUrl = `https://api.trello.com/1/members/me?key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}`;
+        const testResponse = await fetch(testUrl);
         
-        // Provide specific error messages
-        if (apiError.message?.includes('401') || apiError.message?.includes('unauthorized')) {
-          throw new Error('Invalid Trello token or API key. Please verify your token is correct and matches the API key.');
-        } else if (apiError.message?.includes('invalid')) {
-          throw new Error('Invalid Trello token. The token may be expired or incorrect.');
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          console.error('Trello API test failed:', {
+            status: testResponse.status,
+            statusText: testResponse.statusText,
+            error: errorText,
+            apiKey: `${apiKey.substring(0, 8)}...`,
+            tokenPrefix: token.substring(0, 8),
+          });
+          
+          if (testResponse.status === 401) {
+            throw new Error('Invalid Trello token or API key. Please verify your token is correct and matches the API key (e2dc5f7dcce322a3945a62c228c31fa1).');
+          } else if (testResponse.status === 400) {
+            throw new Error('Bad request. Please check your API key and token format.');
+          }
+          throw new Error(`Trello API error: ${testResponse.status} - ${errorText}`);
         }
-        throw apiError;
-      }
-      
-      if (!member || !member.id) {
-        throw new Error('Invalid token: Unable to retrieve member information');
+        
+        member = await testResponse.json();
+        
+        if (!member || !member.id) {
+          throw new Error('Invalid token: Unable to retrieve member information');
+        }
+      } catch (apiError: any) {
+        // Re-throw with better error message if not already handled
+        if (apiError.message?.includes('Trello API error') || apiError.message?.includes('Invalid Trello')) {
+          throw apiError;
+        }
+        throw new Error(`Failed to connect to Trello: ${apiError.message || 'Unknown error'}`);
       }
 
     // Save connection
