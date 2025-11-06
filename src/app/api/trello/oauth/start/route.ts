@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY;
-    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'}/api/trello/oauth/callback`;
+    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'}/api/trello/oauth/callback`;
     const scope = process.env.TRELLO_SCOPE || 'read:board write:board read:card write:card';
 
     if (!clientId) {

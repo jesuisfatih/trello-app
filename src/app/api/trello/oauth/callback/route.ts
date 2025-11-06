@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       console.error('OAuth error:', error);
       const redirectUrl = new URL(
         '/app/integrations/trello?error=oauth_failed',
-        process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'
+        process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'
       );
       return NextResponse.redirect(redirectUrl);
     }
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     // Exchange authorization code for access token
     const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY;
     const clientSecret = process.env.TRELLO_CLIENT_SECRET || process.env.TRELLO_API_SECRET;
-    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'}/api/trello/oauth/callback`;
+    const redirectUri = `${process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'}/api/trello/oauth/callback`;
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
@@ -146,14 +146,14 @@ export async function GET(request: NextRequest) {
     // Redirect to success page
     const redirectUrl = new URL(
       '/app/integrations/trello?success=true',
-      process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'
+      process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'
     );
     return NextResponse.redirect(redirectUrl);
   } catch (error: any) {
     console.error('Trello OAuth 2.0 callback error:', error);
     const redirectUrl = new URL(
       '/app/integrations/trello?error=oauth_failed',
-      process.env.SHOPIFY_APP_URL || 'https://trello-engine.com'
+      process.env.SHOPIFY_APP_URL || 'https://trello-engine.dev'
     );
     return NextResponse.redirect(redirectUrl);
   }

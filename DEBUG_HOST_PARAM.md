@@ -1,47 +1,70 @@
-## 🔍 Shopify Admin Host Parametresi Tespiti
+## 🚀 SUNUCUYA GÖNDER
 
-Lütfen şunu yapın:
+### shopify.app.toml Güncellemesi
 
-1. **Shopify Admin'den uygulamayı açın**
-2. **Browser Console'u açın** (F12 veya Sağ tık → Inspect → Console)
-3. **Aşağıdaki komutu yapıştırıp çalıştırın:**
+✅ Sunucuda güncel versiyonu:
 
-```javascript
-console.log('===== SHOPIFY DEBUG =====');
-console.log('Full URL:', window.location.href);
-console.log('Search params:', window.location.search);
-console.log('Host param:', new URLSearchParams(window.location.search).get('host'));
-console.log('Shop param:', new URLSearchParams(window.location.search).get('shop'));
-console.log('window.shopify:', window.shopify);
-console.log('========================');
+```toml
+name = "ShopiTrello"
+client_id = "cdbe8c337ddeddaa887cffff22dca575"
+application_url = "https://trello-engine.dev"
+embedded = true
+
+[access_scopes]
+scopes = "read_products,write_products,read_orders,write_orders,read_customers,write_customers,read_inventory,write_inventory,read_content,write_content"
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://trello-engine.dev/api/shopify/auth/callback",
+  "https://trello-engine.dev/auth/callback",
+  "https://trello-engine.dev/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-01"
 ```
 
-4. **Çıktıyı bana gönderin**
+### ✅ Kontrol
 
-### Muhtemel Sorunlar
+- ❌ `.com` domain YOK
+- ✅ `.dev` domain VAR
+- ✅ Scopes: read/write tam set
+- ✅ API version: 2026-01
+- ✅ Redirect URLs: doğru
 
-1. **App URL yanlış yapılandırılmış olabilir**
-   - Partner Dashboard → App → Configuration
-   - App URL: `https://trello-engine.com` VEYA `https://trello-engine.dev` (hangisi?)
+### 📋 Partner Dashboard'da Yapılacaklar
 
-2. **Allowed redirection URLs eksik olabilir**
+**1. App Configuration:**
+- App URL: `https://trello-engine.dev`
+- Allowed redirection URL(s):
+  - `https://trello-engine.dev/api/shopify/auth/callback`
+  - `https://trello-engine.dev/auth/callback`
+  - `https://trello-engine.dev/api/auth/callback`
 
-3. **Shopify Admin'den uygulama nasıl açılıyor?**
-   - Apps → "Trello Engine" (veya app adınız)
-   - URL nasıl görünüyor?
-
-### Beklenen URL Formatı
-
-Shopify Admin'den açılınca URL şöyle olmalı:
+**2. Access Scopes:**
 ```
-https://trello-engine.com/app?host=YWRtaW4uc2hvcGlmeS5jb20vc3RvcmUvdGVzdGVyLTEyMzQ1Njc4OTA4Nzk4
+read_products
+write_products
+read_orders
+write_orders
+read_customers
+write_customers
+read_inventory
+write_inventory
+read_content
+write_content
 ```
 
-veya
+**3. API Version:** 
+- Webhook API version: `2026-01`
 
-```
-https://trello-engine.com/app?shop=tester-12345678908798.myshopify.com&host=...
-```
+### ⚠️ ÖNEMLİ
 
-Console çıktısını gönderin, sorunu hemen çözerim.
+Partner Dashboard'da değişiklik yaptıktan sonra:
+1. **Save and release**
+2. **Uygulamayı uninstall edin**
+3. **Yeniden install edin**
+
+Ancak bu adımlardan sonra `host` parametresi gelecek!
 
