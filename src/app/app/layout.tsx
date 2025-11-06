@@ -40,7 +40,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       />
       <ErrorBoundary>
         <SettingsProvider>
-          <ThemeProvider theme={theme()}>
+          <ThemeProvider theme={theme({ skin: 'default' }, 'light', 'ltr')}>
             <CssBaseline />
             <AppBridgeProvider>
               <ToastProvider>

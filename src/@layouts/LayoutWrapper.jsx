@@ -6,17 +6,17 @@ import useLayoutInit from '@core/hooks/useLayoutInit'
 
 const LayoutWrapper = props => {
   // Props
-  const { systemMode, verticalLayout, horizontalLayout } = props
+  const { systemMode, verticalLayout } = props
 
   // Hooks
   const { settings } = useSettings()
 
   useLayoutInit(systemMode)
 
-  // Return the layout based on the layout context
+  // Return vertical layout only (ShopiTrello uses vertical layout)
   return (
     <div className='flex flex-col flex-auto' data-skin={settings.skin}>
-      {settings.layout === 'horizontal' ? horizontalLayout : verticalLayout}
+      {verticalLayout}
     </div>
   )
 }

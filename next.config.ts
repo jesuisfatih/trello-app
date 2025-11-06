@@ -3,15 +3,12 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   output: 'standalone',
   
-  // React 19 compiler (experimental)
   experimental: {
-    // reactCompiler: true, // Uncomment when stable
+    turbopack: {},
   },
 
-  // Transpile Shopify packages
-  transpilePackages: ['@shopify/app-bridge-react', '@shopify/polaris'],
+  transpilePackages: [],
 
-  // Image configuration
   images: {
     remotePatterns: [
       {
@@ -29,7 +26,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Security headers
   async headers() {
     return [
       {
@@ -47,13 +43,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-
-  // Webpack configuration
-  webpack: (config) => {
-    config.externals = [...(config.externals || []), 'canvas', 'jsdom'];
-    return config;
-  },
 };
 
 export default nextConfig;
-
