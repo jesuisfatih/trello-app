@@ -69,8 +69,10 @@ export async function graphqlRequest(
   variables?: Record<string, any>
 ) {
   const client = new shopify.clients.Graphql({
-    domain: shop,
-    accessToken,
+    session: {
+      shop,
+      accessToken,
+    } as any,
   });
 
   try {

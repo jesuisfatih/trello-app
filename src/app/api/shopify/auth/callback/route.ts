@@ -73,8 +73,10 @@ export async function GET(request: NextRequest) {
 
     // Get shop info using GraphQL
     const client = new shopify.clients.Graphql({
-      domain: shop,
-      accessToken,
+      session: {
+        shop,
+        accessToken,
+      } as any,
     });
 
     const shopInfoResponse = await client.request(`
