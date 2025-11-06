@@ -48,6 +48,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (!shopDomain) {
+      const explicitShop = request.nextUrl.searchParams.get('shop');
+      if (explicitShop) {
+        shopDomain = explicitShop;
+      }
+    }
+
+    if (!shopDomain) {
       return NextResponse.json(
         { error: 'Unable to determine shop domain. Please ensure you are accessing this from Shopify admin.' },
         { status: 400 }
