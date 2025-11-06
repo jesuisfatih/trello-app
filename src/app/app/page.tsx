@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useAppBridge } from '@/lib/app-bridge-provider'
 
+export const dynamic = 'force-dynamic'
+
 export default function Dashboard() {
   const [status, setStatus] = useState({ shopify: true, trello: false })
   const [loading, setLoading] = useState(true)

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export default function BoardsPage() {
   const [boards, setBoards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)

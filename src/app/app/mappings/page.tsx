@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 export default function MappingsPage() {
   return (
     <div className='p-8 max-w-7xl mx-auto'>

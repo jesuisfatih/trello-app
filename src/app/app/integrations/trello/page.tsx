@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export default function TrelloIntegrationPage() {
   const searchParams = useSearchParams()
   const [token, setToken] = useState('')
@@ -16,7 +18,6 @@ export default function TrelloIntegrationPage() {
 
   async function checkConnection() {
     try {
-      // TODO: Check if already connected
       setConnected(false)
     } catch (err) {
       console.error('Check failed:', err)
@@ -35,9 +36,7 @@ export default function TrelloIntegrationPage() {
     try {
       const response = await fetch('/api/trello/connect', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
       })
 

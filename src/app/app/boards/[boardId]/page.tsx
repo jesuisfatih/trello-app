@@ -2,6 +2,8 @@
 
 import { useParams } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export default function BoardDetailPage() {
   const params = useParams()
   const boardId = params.boardId as string
