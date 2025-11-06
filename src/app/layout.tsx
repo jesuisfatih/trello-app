@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -11,16 +12,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || process.env.SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
+  const apiKey = 'cdbe8c337ddeddaa887cffff22dca575';
   
   return (
     <html lang="en">
       <head>
         <meta name="shopify-api-key" content={apiKey} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="antialiased">
+        <Script 
+          src="https://cdn.shopify.com/shopifycloud/app-bridge.js" 
+          data-api-key={apiKey}
+          strategy="beforeInteractive"
+        />
         {children}
       </body>
     </html>
