@@ -38,11 +38,21 @@ export default function TrelloIntegrationPage() {
         const match = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
         if (match) {
           resolvedShop = match[1]
+        } else {
+          const storeMatch = decodedHost.match(/store\/([a-zA-Z0-9-]+)/)
+          if (storeMatch) {
+            resolvedShop = `${storeMatch[1]}.myshopify.com`
+          }
         }
       } catch (err) {
         const directMatch = hostParam.match(/([a-zA-Z0-9-]+\.myshopify\.com)/)
         if (directMatch) {
           resolvedShop = directMatch[1]
+        } else {
+          const storeMatch = hostParam.match(/store\/([a-zA-Z0-9-]+)/)
+          if (storeMatch) {
+            resolvedShop = `${storeMatch[1]}.myshopify.com`
+          }
         }
       }
     }

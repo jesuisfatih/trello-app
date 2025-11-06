@@ -37,11 +37,23 @@ export async function GET(request: NextRequest) {
           if (shopMatch) {
             shopDomain = shopMatch[1];
           }
+          if (!shopDomain) {
+            const storeMatch = decodedHost.match(/store\/([a-zA-Z0-9-]+)/);
+            if (storeMatch) {
+              shopDomain = `${storeMatch[1]}.myshopify.com`;
+            }
+          }
         } catch (e) {
           // Host is not base64, try direct match
           const directMatch = host.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
           if (directMatch) {
             shopDomain = directMatch[1];
+          }
+          if (!shopDomain) {
+            const storeMatch = host.match(/store\/([a-zA-Z0-9-]+)/);
+            if (storeMatch) {
+              shopDomain = `${storeMatch[1]}.myshopify.com`;
+            }
           }
         }
       }
