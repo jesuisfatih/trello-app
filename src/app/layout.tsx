@@ -12,19 +12,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const apiKey = 'cdbe8c337ddeddaa887cffff22dca575';
-  
+  const apiKey = 'cdbe8c337ddeddaa887cffff22dca575'
+
   return (
     <html lang="en">
       <head>
         <meta name="shopify-api-key" content={apiKey} />
+        <script
+          id="shopify-app-bridge"
+          data-api-key={apiKey}
+          src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
+        ></script>
       </head>
       <body className="antialiased">
-        <Script 
-          src="https://cdn.shopify.com/shopifycloud/app-bridge.js" 
-          data-api-key={apiKey}
-          strategy="beforeInteractive"
-        />
         {children}
       </body>
     </html>
