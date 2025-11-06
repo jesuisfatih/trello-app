@@ -87,20 +87,23 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
           let hostCandidate: string | null =
             hostFromUrl ||
             getCookie('shopify_host') ||
-            getMeta('shopify-host-origin') ||
+            getMeta('shopify-host') ||
             null;
 
           let shopCandidate: string | null =
             shopFromContext ||
             normalizeShopDomain(getCookie('shopify_shop')) ||
-            normalizeShopDomain(getMeta('shopify-shop-origin')?.replace(/^https?:\/\//, '') || null) ||
+            normalizeShopDomain(
+              (getMeta('shopify-shop') || '')
+                .replace(/^https?:\/\//, '')
+            ) ||
             null;
 
           while ((!hostCandidate || !shopCandidate) && attempts < 60) {
             if (!hostCandidate) {
               hostCandidate =
                 getCookie('shopify_host') ||
-                getMeta('shopify-host-origin') ||
+                getMeta('shopify-host') ||
                 null;
             }
 
@@ -145,8 +148,8 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
         setClientCookie('shopify_host', host);
         setClientCookie('shopify_shop', shop);
         const shopForMeta = shop.startsWith('http') ? shop : `https://${shop}`;
-        setMeta('shopify-shop-origin', shopForMeta);
-        setMeta('shopify-host-origin', host);
+        setMeta('shopify-shop', shopForMeta);
+        setMeta('shopify-host', host);
         if (typeof document !== 'undefined' && document.body) {
           document.body.setAttribute('data-shopify-shop-origin', shop);
         }

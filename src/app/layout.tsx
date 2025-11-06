@@ -20,7 +20,8 @@ export default function RootLayout({
       <head>
         <meta name="shopify-api-key" content={apiKey} />
         <meta name="shopify-app-origin" content={appOrigin} />
-        <meta name="shopify-shop-origin" content="" />
+        <meta name="shopify-shop" content="" />
+        <meta name="shopify-host" content="" />
         <script
           id="shopify-meta-bootstrap"
           dangerouslySetInnerHTML={{
@@ -66,8 +67,10 @@ export default function RootLayout({
 
                 var params = new URLSearchParams(window.location.search);
                 var hostParam = params.get('host') || getCookie('shopify_host');
+                var hostParamFromUrl = params.get('host');
                 var shopParam = params.get('shop') || getCookie('shopify_shop');
                 var shopDomain = null;
+                var hostParam = hostParamFromUrl || getCookie('shopify_host');
 
                 if (shopParam && typeof shopParam === 'string') {
                   shopDomain = shopParam.trim().toLowerCase();
@@ -75,6 +78,10 @@ export default function RootLayout({
 
                 if (!shopDomain) {
                   shopDomain = extractShop(hostParam);
+                }
+
+                if (hostParam) {
+                  ensureMeta('shopify-host', hostParam);
                 }
 
                 if (shopDomain && !shopDomain.startsWith('https://')) {
@@ -85,14 +92,19 @@ export default function RootLayout({
                 ensureMeta('shopify-app-origin', appOrigin);
 
                 if (shopDomain) {
-                  ensureMeta('shopify-shop-origin', shopDomain);
+                  ensureMeta('shopify-shop', shopDomain);
                   window.__SHOPIFY_SHOP_ORIGIN__ = shopDomain;
+                  window.__SHOPIFY_DEV_CONFIG__ = window.__SHOPIFY_DEV_CONFIG__ || {};
+                  window.__SHOPIFY_DEV_CONFIG__.shop = shopDomain;
+                  if (hostParam) {
+                    window.__SHOPIFY_DEV_CONFIG__.host = hostParam;
+                  }
                   if (document.body) {
-                    document.body.setAttribute('data-shopify-shop-origin', shopDomain);
+                    document.body.setAttribute('data-shopify-shop', shopDomain);
                   } else {
                     document.addEventListener('DOMContentLoaded', function () {
                       if (document.body) {
-                        document.body.setAttribute('data-shopify-shop-origin', shopDomain);
+                        document.body.setAttribute('data-shopify-shop', shopDomain);
                       }
                     });
                   }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Key, CheckCircle2, XCircle, ExternalLink } from 'lucide-react'
+import { Key, CheckCircle2, XCircle, ExternalLink, ShieldCheck } from 'lucide-react'
 import { Card } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Card'
@@ -17,6 +17,7 @@ export default function TrelloIntegrationPage() {
   const [memberInfo, setMemberInfo] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [oauthLoading, setOauthLoading] = useState(false)
 
   useEffect(() => {
     checkConnection()
@@ -108,6 +109,32 @@ export default function TrelloIntegrationPage() {
     }
   }
 
+  async function handleOAuth() {
+    setError(null)
+    setOauthLoading(true)
+    try {
+      const response = await fetch('/api/trello/oauth/start', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.authorizeUrl) {
+        throw new Error(data.error || 'Failed to initiate Trello OAuth')
+      }
+
+      window.open(data.authorizeUrl, '_top')
+    } catch (err: any) {
+      console.error('OAuth start failed:', err)
+      setError(err.message || 'Failed to start Trello OAuth')
+    } finally {
+      setOauthLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -149,6 +176,33 @@ export default function TrelloIntegrationPage() {
             </div>
             <Badge variant="success">Active</Badge>
           </div>
+        </Card>
+      )}
+
+      {!connected && (
+        <Card padding="lg">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
+              <ShieldCheck className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Secure Trello OAuth</h3>
+              <p className="text-sm text-gray-500">Recommended for production stores</p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 mb-6">
+            Authenticate with Trello using OAuth to automatically manage tokens and permissions.
+          </p>
+          <Button
+            onClick={handleOAuth}
+            disabled={oauthLoading}
+            isLoading={oauthLoading}
+            className="w-full"
+            variant="outline"
+            size="lg"
+          >
+            {oauthLoading ? 'Redirecting...' : 'Continue with Trello OAuth'}
+          </Button>
         </Card>
       )}
 
