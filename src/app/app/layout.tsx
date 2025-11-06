@@ -1,11 +1,11 @@
 'use client'
 
-import { ReactNode, useState, useEffect } from 'react'
+import { ReactNode } from 'react'
 import Script from 'next/script'
 
 // MUI Imports
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
+import { createTheme, ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 
 // Component Imports
@@ -23,20 +23,16 @@ import { VerticalNavProvider } from '@menu/contexts/verticalNavContext'
 import { SettingsProvider } from '@core/contexts/settingsContext'
 
 // Theme Imports
-import themeFunction from '@core/theme'
+import themeConfig from '@core/theme'
 
 // CSS Imports
 import 'react-perfect-scrollbar/dist/css/styles.css'
 
+// Create Vuexy theme with type assertion
+const vuexyThemeConfig = themeConfig({ skin: 'default' }, 'light', 'ltr')
+const muiTheme = createTheme(vuexyThemeConfig as any)
+
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const [muiTheme, setMuiTheme] = useState(createTheme())
-
-  useEffect(() => {
-    // Initialize Vuexy theme on client-side only
-    const vuexyTheme = themeFunction({ skin: 'default' }, 'light', 'ltr')
-    setMuiTheme(createTheme(vuexyTheme))
-  }, [])
-
   return (
     <>
       <Script
