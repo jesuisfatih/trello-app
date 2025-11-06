@@ -2,7 +2,7 @@
 
 name = "ShopiTrello"
 client_id = "cdbe8c337ddeddaa887cffff22dca575"
-application_url = "https://trello-engine.com"
+application_url = "https://trello-engine.dev"
 embedded = true
 
 [build]
@@ -15,9 +15,9 @@ use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
-  "https://trello-engine.com/api/shopify/auth/callback",
-  "https://trello-engine.com/auth/callback",
-  "https://trello-engine.com/api/auth/callback"
+  "https://trello-engine.dev/api/shopify/auth/callback",
+  "https://trello-engine.dev/auth/callback",
+  "https://trello-engine.dev/api/auth/callback"
 ]
 
 [webhooks]

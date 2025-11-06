@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import createApp from '@shopify/app-bridge';
+import { getSessionToken } from '@shopify/app-bridge/utilities';
+import { Redirect } from '@shopify/app-bridge/actions';
 
 interface AppBridgeContextType {
   app: any;
@@ -24,13 +26,24 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAppBridge = async () => {
       try {
-        // Get config from URL (Shopify provides host parameter)
+        // Get config from URL (REQUIRED by Shopify)
         const urlParams = new URLSearchParams(window.location.search);
         const host = urlParams.get('host');
         const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || 'cdbe8c337ddeddaa887cffff22dca575';
 
+        // SHOPIFY REQUIREMENT: host parameter MUST exist
         if (!host) {
-          console.warn('Host parameter missing - app may not work in Shopify admin');
+          // If no host, redirect to Shopify OAuth install
+          const shopParam = urlParams.get('shop');
+          if (shopParam) {
+            // Redirect to OAuth install
+            window.location.href = `/api/shopify/auth?shop=${shopParam}`;
+            return;
+          }
+          
+          // Cannot proceed without host or shop
+          console.error('CRITICAL: No host or shop parameter. App must be accessed from Shopify Admin.');
+          setError('App must be accessed from Shopify Admin. Please install the app first.');
           setLoading(false);
           return;
         }
@@ -38,23 +51,31 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
         // Create App Bridge instance (Shopify official method)
         const shopifyApp = createApp({
           apiKey,
-          host,
+          host, // MUST be from URL parameter (Shopify provides it)
           forceRedirect: true,
         });
 
         setApp(shopifyApp);
 
-        // Get initial session token
-        if (shopifyApp) {
-          try {
-            // Import getSessionToken from App Bridge utilities
-            const { getSessionToken: getBridgeToken } = await import('@shopify/app-bridge/utilities');
-            const token = await getBridgeToken(shopifyApp);
-            if (token) {
-              setSessionToken(token);
-            }
-          } catch (tokenError) {
-            console.warn('Failed to get initial session token:', tokenError);
+        // Get initial session token using Shopify utilities
+        try {
+          const token = await getSessionToken(shopifyApp);
+          if (token) {
+            setSessionToken(token);
+          } else {
+            console.warn('Session token is empty - may need OAuth authorization');
+          }
+        } catch (tokenError: any) {
+          console.error('Failed to get session token:', tokenError);
+          
+          // If authentication fails, redirect to Shopify OAuth
+          if (tokenError.type === 'APP::ERROR::FAILED_AUTHENTICATION') {
+            const redirect = Redirect.create(shopifyApp);
+            redirect.dispatch(
+              Redirect.Action.REMOTE,
+              `/api/shopify/auth?host=${encodeURIComponent(host)}`
+            );
+            return;
           }
         }
 
@@ -69,21 +90,34 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
     initAppBridge();
   }, []);
 
-  const getSessionToken = async (): Promise<string | null> => {
+  const getToken = async (): Promise<string | null> => {
     if (!app) {
-      console.warn('App Bridge not initialized');
+      console.error('App Bridge not initialized');
       return null;
     }
 
     try {
-      const { getSessionToken: getBridgeToken } = await import('@shopify/app-bridge/utilities');
-      const token = await getBridgeToken(app);
+      const token = await getSessionToken(app);
       if (token) {
         setSessionToken(token);
         return token;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to get session token:', error);
+      
+      // Handle authentication failure
+      if (error.type === 'APP::ERROR::FAILED_AUTHENTICATION') {
+        // Redirect to OAuth
+        const urlParams = new URLSearchParams(window.location.search);
+        const host = urlParams.get('host');
+        if (host) {
+          const redirect = Redirect.create(app);
+          redirect.dispatch(
+            Redirect.Action.REMOTE,
+            `/api/shopify/auth?host=${encodeURIComponent(host)}`
+          );
+        }
+      }
     }
 
     return null;
@@ -93,10 +127,10 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
     url: string,
     options: RequestInit = {}
   ): Promise<Response> => {
-    const token = await getSessionToken();
+    const token = await getToken();
     
     if (!token) {
-      throw new Error('No session token available');
+      throw new Error('No session token available - authentication required');
     }
 
     const headers = new Headers(options.headers);
@@ -110,23 +144,21 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   };
 
   const showToast = (message: string, isError: boolean = false) => {
-    if (app && app.dispatch) {
-      // Use App Bridge Toast action
-      const Toast = app.Toast || {};
-      if (Toast.create) {
+    if (app) {
+      try {
+        const { Toast } = require('@shopify/app-bridge/actions');
         const toastOptions = {
           message,
           duration: 3000,
           isError,
         };
-        Toast.create(app, toastOptions).dispatch(Toast.Action.SHOW);
-      }
-    } else {
-      if (isError) {
-        console.error('Toast:', message);
-      } else {
+        const toastNotice = Toast.create(app, toastOptions);
+        toastNotice.dispatch(Toast.Action.SHOW);
+      } catch (e) {
         console.log('Toast:', message);
       }
+    } else {
+      console.log('Toast:', message);
     }
   };
 
@@ -137,7 +169,7 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
         loading,
         error,
         sessionToken,
-        getSessionToken,
+        getSessionToken: getToken,
         authenticatedFetch,
         showToast,
       }}
