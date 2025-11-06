@@ -32,11 +32,14 @@ export function middleware(request: NextRequest) {
     shopParam,
   })
 
+  const isSecure = request.nextUrl.protocol === 'https:'
+  const sameSite = isSecure ? 'none' : 'lax'
+
   if (hostParam) {
     response.cookies.set('shopify_host', hostParam, {
       httpOnly: false,
-      secure: request.nextUrl.protocol === 'https:',
-      sameSite: 'lax',
+      secure: isSecure,
+      sameSite,
       maxAge: COOKIE_MAX_AGE,
       path: '/',
     })
@@ -45,8 +48,8 @@ export function middleware(request: NextRequest) {
   if (shopDomain) {
     response.cookies.set('shopify_shop', shopDomain, {
       httpOnly: false,
-      secure: request.nextUrl.protocol === 'https:',
-      sameSite: 'lax',
+      secure: isSecure,
+      sameSite,
       maxAge: COOKIE_MAX_AGE,
       path: '/',
     })
@@ -56,9 +59,17 @@ export function middleware(request: NextRequest) {
     return response
   }
 
-  const hasHostCookie = request.cookies.get('shopify_host')?.value || hostParam
+  const hasHostContext =
+    request.cookies.get('shopify_host')?.value ||
+    hostParam ||
+    null
 
-  if (pathname.startsWith('/app') && !hasHostCookie) {
+  const hasShopContext =
+    request.cookies.get('shopify_shop')?.value ||
+    shopDomain ||
+    null
+
+  if (pathname.startsWith('/app') && !hasHostContext && !hasShopContext) {
     const loginUrl = new URL('/auth/login', request.url)
     return NextResponse.redirect(loginUrl)
   }
