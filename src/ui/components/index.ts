@@ -1,4 +1,3 @@
-export { DashboardLayout } from './DashboardLayout';
 export { ErrorBoundary } from './ErrorBoundary';
 export { LoadingSpinner, LoadingOverlay, LoadingPage } from './LoadingSpinner';
 export { ErrorMessage } from './ErrorMessage';
