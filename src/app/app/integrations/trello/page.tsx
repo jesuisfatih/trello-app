@@ -128,16 +128,31 @@ export default function TrelloIntegrationPage() {
       return
     }
 
+    // Validate token format
+    if (!token.startsWith('ATTA') && !token.match(/^[a-zA-Z0-9]{64}$/)) {
+      setError('Invalid token format. Trello tokens should start with "ATTA" or be 64 characters long.')
+      return
+    }
+
     setConnecting(true)
     setError(null)
 
     try {
       const sessionToken = await getSessionToken()
-      const response = await fetch('/api/trello/connect', {
+      
+      // Build URL with host parameter if available (for shop domain fallback)
+      const urlParams = new URLSearchParams(window.location.search)
+      const host = urlParams.get('host')
+      let url = '/api/trello/connect'
+      if (host) {
+        url += `?host=${encodeURIComponent(host)}`
+      }
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
+          'Authorization': sessionToken ? `Bearer ${sessionToken}` : 'Bearer null',
         },
         body: JSON.stringify({ token }),
       })
@@ -152,7 +167,7 @@ export default function TrelloIntegrationPage() {
       setToken('')
       await checkConnection()
     } catch (err: any) {
-      setError(err.message || 'Failed to connect')
+      setError(err.message || 'Failed to connect to Trello. Please check your token and try again.')
     } finally {
       setConnecting(false)
     }

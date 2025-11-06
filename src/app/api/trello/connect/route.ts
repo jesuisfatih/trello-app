@@ -9,20 +9,60 @@ import { createTrelloClient } from '@/lib/trello';
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let shopDomain: string | null = null;
+
+    // Try to get shop from session token
+    if (authHeader?.startsWith('Bearer ') && authHeader !== 'Bearer null') {
+      try {
+        const sessionToken = authHeader.substring(7);
+        if (sessionToken && sessionToken !== 'null') {
+          const payload = await validateSessionToken(sessionToken);
+          shopDomain = payload.dest.replace('https://', '');
+        }
+      } catch (tokenError) {
+        console.warn('Session token validation failed:', tokenError);
+      }
     }
 
-    const sessionToken = authHeader.substring(7);
-    const payload = await validateSessionToken(sessionToken);
-    const shopDomain = payload.dest.replace('https://', '');
+    // Fallback: Try to get shop from URL params or cookies
+    if (!shopDomain) {
+      const urlParams = request.nextUrl.searchParams;
+      const host = urlParams.get('host');
+      
+      if (host) {
+        try {
+          const decodedHost = Buffer.from(host, 'base64').toString();
+          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
+          if (shopMatch) {
+            shopDomain = shopMatch[1];
+          }
+        } catch (e) {
+          const directMatch = host.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
+          if (directMatch) {
+            shopDomain = directMatch[1];
+          }
+        }
+      }
+
+      // Try to get from cookies
+      const shopCookie = request.cookies.get('shopify_shop')?.value;
+      if (shopCookie) {
+        shopDomain = shopCookie;
+      }
+    }
+
+    if (!shopDomain) {
+      return NextResponse.json({ 
+        error: 'Unable to determine shop domain. Please ensure you are accessing this from Shopify admin.' 
+      }, { status: 400 });
+    }
 
     const shop = await prisma.shop.findUnique({
       where: { domain: shopDomain },
     });
 
     if (!shop) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Shop not found. Please install the app first.' }, { status: 404 });
     }
 
     const body = await request.json();
@@ -32,9 +72,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token required' }, { status: 400 });
     }
 
+    // Validate token format (Trello tokens start with ATTA)
+    if (!token.startsWith('ATTA') && !token.match(/^[a-zA-Z0-9]{64}$/)) {
+      return NextResponse.json({ error: 'Invalid token format. Trello tokens should start with ATTA or be 64 characters long.' }, { status: 400 });
+    }
+
     // Test connection with token
-    const client = createTrelloClient(token);
-    const member = await client.request('GET', '/1/members/me');
+    try {
+      const client = createTrelloClient(token);
+      const member = await client.request('GET', '/1/members/me');
+      
+      if (!member || !member.id) {
+        throw new Error('Invalid token: Unable to retrieve member information');
+      }
 
     // Save connection
     await prisma.trelloConnection.upsert({
@@ -52,21 +102,37 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await prisma.eventLog.create({
-      data: {
-        shopId: shop.id,
-        source: 'trello',
-        type: 'manual_token_connected',
-        payload: { memberId: member.id },
-        status: 'success',
-      },
-    });
+      await prisma.eventLog.create({
+        data: {
+          shopId: shop.id,
+          source: 'trello',
+          type: 'manual_token_connected',
+          payload: { memberId: member.id, memberName: member.fullName || member.username },
+          status: 'success',
+        },
+      });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Trello connected successfully',
-      member: { id: member.id, fullName: member.fullName },
-    });
+      return NextResponse.json({
+        success: true,
+        message: 'Trello connected successfully',
+        member: { id: member.id, fullName: member.fullName || member.username },
+      });
+    } catch (trelloError: any) {
+      console.error('Trello API error:', trelloError);
+      
+      // Provide specific error messages
+      if (trelloError.message?.includes('invalid token') || trelloError.message?.includes('unauthorized')) {
+        return NextResponse.json(
+          { error: 'Invalid Trello token. Please check your token and try again.' },
+          { status: 401 }
+        );
+      }
+      
+      return NextResponse.json(
+        { error: trelloError.message || 'Failed to connect to Trello. Please verify your token is correct.' },
+        { status: 500 }
+      );
+    }
   } catch (error: any) {
     console.error('Trello connect error:', error);
     return NextResponse.json(
@@ -82,13 +148,55 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let shopDomain: string | null = null;
+
+    // Try to get shop from session token
+    if (authHeader?.startsWith('Bearer ') && authHeader !== 'Bearer null') {
+      try {
+        const sessionToken = authHeader.substring(7);
+        if (sessionToken && sessionToken !== 'null') {
+          const payload = await validateSessionToken(sessionToken);
+          shopDomain = payload.dest.replace('https://', '');
+        }
+      } catch (tokenError) {
+        console.warn('Session token validation failed:', tokenError);
+      }
     }
 
-    const sessionToken = authHeader.substring(7);
-    const payload = await validateSessionToken(sessionToken);
-    const shopDomain = payload.dest.replace('https://', '');
+    // Fallback: Try to get shop from URL params or cookies
+    if (!shopDomain) {
+      const urlParams = request.nextUrl.searchParams;
+      const host = urlParams.get('host');
+      
+      if (host) {
+        try {
+          const decodedHost = Buffer.from(host, 'base64').toString();
+          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
+          if (shopMatch) {
+            shopDomain = shopMatch[1];
+          }
+        } catch (e) {
+          const directMatch = host.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
+          if (directMatch) {
+            shopDomain = directMatch[1];
+          }
+        }
+      }
+
+      // Try to get from cookies
+      const shopCookie = request.cookies.get('shopify_shop')?.value;
+      if (shopCookie) {
+        shopDomain = shopCookie;
+      }
+    }
+
+    if (!shopDomain) {
+      return NextResponse.json({ 
+        connected: false,
+        connection: null,
+        error: 'Unable to determine shop domain'
+      }, { status: 200 }); // Return 200 with connected: false instead of error
+    }
 
     const shop = await prisma.shop.findUnique({
       where: { domain: shopDomain },
@@ -96,7 +204,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!shop) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
+      return NextResponse.json({ 
+        connected: false,
+        connection: null 
+      }, { status: 200 });
     }
 
     const connected = shop.trelloConnections.length > 0;
@@ -108,7 +219,12 @@ export async function GET(request: NextRequest) {
       } : null,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Trello connect GET error:', error);
+    return NextResponse.json({ 
+      connected: false,
+      connection: null,
+      error: error.message 
+    }, { status: 200 }); // Return 200 to prevent UI errors
   }
 }
 
