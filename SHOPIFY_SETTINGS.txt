@@ -1,0 +1,60 @@
+## ✅ PARTNER DASHBOARD AYARLARI
+
+Aşağıdaki ayarları **TAM OLARAK** Partner Dashboard'a girin:
+
+---
+
+### 🔧 App URL
+```
+https://trello-engine.dev
+```
+
+---
+
+### 🔐 Redirect URLs (3 adet)
+```
+https://trello-engine.dev/api/shopify/auth/callback
+https://trello-engine.dev/auth/callback
+https://trello-engine.dev/api/auth/callback
+```
+
+---
+
+### 📊 Access Scopes (10 adet)
+```
+read_products
+write_products
+read_orders
+write_orders
+read_customers
+write_customers
+read_inventory
+write_inventory
+read_content
+write_content
+```
+
+---
+
+### 🌐 API Version
+```
+2026-01
+```
+
+---
+
+### ⚡ Embed Settings
+```
+Embed app in Shopify admin: TRUE
+Use legacy install flow: FALSE
+```
+
+---
+
+## SONRA YAPILACAKLAR
+
+1. **Save and release**
+2. **Uninstall app** (test mağazasından)
+3. **Install app** (Partner Dashboard'dan)
+4. **Test edin** - `host` parametresi gelecek!
+
