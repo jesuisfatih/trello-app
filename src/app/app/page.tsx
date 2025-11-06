@@ -12,10 +12,42 @@ export const dynamic = 'force-dynamic'
 export default function Dashboard() {
   const [status, setStatus] = useState({ shopify: true, trello: false })
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ boards: 0, mappings: 0, eventsToday: 0 })
 
   useEffect(() => {
-    setLoading(false)
+    checkConnections()
   }, [])
+
+  async function checkConnections() {
+    try {
+      // Check Trello connection
+      const trelloResponse = await fetch('/api/trello/status')
+      const trelloData = await trelloResponse.json()
+      
+      setStatus({
+        shopify: true,
+        trello: trelloData.connected || false,
+      })
+
+      // If connected, fetch stats
+      if (trelloData.connected && trelloData.connection) {
+        const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
+        const token = trelloData.connection.token
+        
+        // Get boards count
+        const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${apiKey}&token=${token}`
+        const boardsResponse = await fetch(boardsUrl)
+        if (boardsResponse.ok) {
+          const boards = await boardsResponse.json()
+          setStats(prev => ({ ...prev, boards: boards.length }))
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check connections:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -112,7 +144,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Boards</p>
-              <p className="text-3xl font-bold text-gray-900">0</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.boards}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <FolderKanban className="h-6 w-6 text-blue-600" />
@@ -123,7 +155,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Active Mappings</p>
-              <p className="text-3xl font-bold text-gray-900">0</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.mappings}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <Link2 className="h-6 w-6 text-purple-600" />
@@ -134,7 +166,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Events Today</p>
-              <p className="text-3xl font-bold text-gray-900">0</p>
+              <p className="text-3xl font-bold text-gray-900">{stats.eventsToday}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <FileText className="h-6 w-6 text-green-600" />
