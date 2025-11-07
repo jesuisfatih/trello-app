@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Key, CheckCircle2, XCircle, ExternalLink, ShieldCheck } from 'lucide-react'
+import { Key, CheckCircle2, XCircle, ExternalLink, ShieldCheck, Lock } from 'lucide-react'
 import { Card } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Card'
@@ -18,6 +18,7 @@ export default function TrelloIntegrationPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [oauthLoading, setOauthLoading] = useState(false)
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
 
   useEffect(() => {
     checkConnection()
@@ -25,14 +26,18 @@ export default function TrelloIntegrationPage() {
 
   async function checkConnection() {
     try {
+      if (!trelloApiKey) {
+        setLoading(false)
+        return
+      }
+
       const response = await fetch('/api/trello/status')
       const data = await response.json()
       
       if (data.connected && data.connection) {
         setConnected(true)
         // Get member info from Trello
-        const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
-        const memberUrl = `https://api.trello.com/1/members/me?key=${apiKey}&token=${data.connection.token}`
+        const memberUrl = `https://api.trello.com/1/members/me?key=${trelloApiKey}&token=${data.connection.token}`
         const memberResponse = await fetch(memberUrl)
         if (memberResponse.ok) {
           const member = await memberResponse.json()
@@ -52,6 +57,11 @@ export default function TrelloIntegrationPage() {
       return
     }
 
+    if (!trelloApiKey) {
+      setError('Trello API key is not configured. Please contact support.')
+      return
+    }
+
     // Validate token format
     if (!token.startsWith('ATTA')) {
       setError('Invalid token format. Trello tokens should start with "ATTA".')
@@ -63,8 +73,7 @@ export default function TrelloIntegrationPage() {
 
     try {
       // Direct API call to Trello (no shop domain needed)
-      const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
-      const testUrl = `https://api.trello.com/1/members/me?key=${apiKey}&token=${token}`
+      const testUrl = `https://api.trello.com/1/members/me?key=${trelloApiKey}&token=${token}`
       
       const testResponse = await fetch(testUrl)
       
@@ -109,11 +118,11 @@ export default function TrelloIntegrationPage() {
     }
   }
 
-  async function handleOAuth() {
+  async function handleOAuth1() {
     setError(null)
     setOauthLoading(true)
     try {
-      const response = await fetch('/api/trello/oauth/start', {
+      const response = await fetch('/api/trello/oauth1/start', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -186,22 +195,22 @@ export default function TrelloIntegrationPage() {
               <ShieldCheck className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Secure Trello OAuth</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Secure Trello OAuth (1.0a)</h3>
               <p className="text-sm text-gray-500">Recommended for production stores</p>
             </div>
           </div>
           <p className="text-sm text-gray-600 mb-6">
-            Authenticate with Trello using OAuth to automatically manage tokens and permissions.
+            Authenticate with Trello using OAuth 1.0a to automatically manage tokens and permissions.
           </p>
           <Button
-            onClick={handleOAuth}
+            onClick={handleOAuth1}
             disabled={oauthLoading}
             isLoading={oauthLoading}
             className="w-full"
             variant="outline"
             size="lg"
           >
-            {oauthLoading ? 'Redirecting...' : 'Continue with Trello OAuth'}
+            {oauthLoading ? 'Redirecting...' : 'Continue with Trello OAuth 1.0'}
           </Button>
         </Card>
       )}
@@ -226,7 +235,7 @@ export default function TrelloIntegrationPage() {
               <li>
                 Visit:{' '}
                 <a
-                  href="https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&name=ShopiTrello&key=e2dc5f7dcce322a3945a62c228c31fa1"
+                  href={`https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&name=ShopiTrello&key=${trelloApiKey}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline hover:text-blue-900 font-medium"
@@ -236,7 +245,10 @@ export default function TrelloIntegrationPage() {
                 </a>
               </li>
               <li>
-                API Key: <code className="bg-white px-2 py-1 rounded text-xs font-mono">e2dc5f7dcce322a3945a62c228c31fa1</code>
+                API Key:{' '}
+                <code className="bg-white px-2 py-1 rounded text-xs font-mono">
+                  {trelloApiKey || 'Missing NEXT_PUBLIC_TRELLO_API_KEY'}
+                </code>
               </li>
               <li>Click "Allow" to grant permissions</li>
               <li>Copy the token that appears</li>
@@ -285,6 +297,25 @@ export default function TrelloIntegrationPage() {
               Go to Boards
             </Button>
           </div>
+        </Card>
+      )}
+
+      {!connected && (
+        <Card padding="lg" className="border-dashed">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+              <Lock className="h-5 w-5 text-gray-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Trello OAuth 2.0 (Coming Soon)</h3>
+              <p className="text-sm text-gray-500">
+                Trello is still rolling out official OAuth 2.0 support. We’ll enable this option once Atlassian activates 3LO scopes for Trello.
+              </p>
+            </div>
+          </div>
+          <Button className="w-full" variant="secondary" disabled>
+            Coming Soon
+          </Button>
         </Card>
       )}
     </div>

@@ -9,6 +9,7 @@ export default function BoardsPage() {
   const [boards, setBoards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [connected, setConnected] = useState(false)
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
 
   useEffect(() => {
     checkTrelloConnection()
@@ -36,8 +37,10 @@ export default function BoardsPage() {
 
   async function fetchBoards(token: string) {
     try {
-      const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
-      const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${apiKey}&token=${token}`
+      if (!trelloApiKey) {
+        return
+      }
+      const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${trelloApiKey}&token=${token}`
       const response = await fetch(boardsUrl)
       
       if (response.ok) {

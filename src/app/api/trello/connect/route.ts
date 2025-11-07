@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
           });
           
           if (testResponse.status === 401) {
-            throw new Error('Invalid Trello token or API key. Please verify your token is correct and matches the API key (e2dc5f7dcce322a3945a62c228c31fa1).');
+            throw new Error('Invalid Trello token or API key. Please verify your token is correct and that TRELLO_API_KEY matches your Trello app configuration.');
           } else if (testResponse.status === 400) {
             throw new Error('Bad request. Please check your API key and token format.');
           }
@@ -149,12 +149,13 @@ export async function POST(request: NextRequest) {
         shopId: shop.id,
         trelloMemberId: member.id,
         token: token,
-        scope: 'read,write',
+        scope: 'read,write,account',
         expiresAt: null,
       },
       update: {
         token: token,
         trelloMemberId: member.id,
+        scope: 'read,write,account',
       },
     });
 

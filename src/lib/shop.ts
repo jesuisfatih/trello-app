@@ -1,3 +1,8 @@
+import { NextResponse } from 'next/server'
+
+const SHOPIFY_SHOP_COOKIE = 'shopify_shop'
+const SHOPIFY_HOST_COOKIE = 'shopify_host'
+
 export function decodeHostParam(hostParam: string): string {
   if (!hostParam) {
     return hostParam
@@ -58,5 +63,29 @@ export function getShopDomainFromRequest({
 
   const shopFromHost = extractShopFromHost(hostParam)
   return { shopDomain: shopFromHost, normalizedHost }
+}
+
+export function setShopCookies(response: NextResponse, shopDomain: string, host?: string | null) {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const sameSite = isProduction ? 'none' : 'lax'
+  const secure = isProduction
+
+  response.cookies.set(SHOPIFY_SHOP_COOKIE, shopDomain, {
+    httpOnly: false,
+    secure,
+    sameSite,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+  })
+
+  if (host) {
+    response.cookies.set(SHOPIFY_HOST_COOKIE, host, {
+      httpOnly: false,
+      secure,
+      sameSite,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+    })
+  }
 }
 

@@ -13,6 +13,7 @@ export default function MappingsPage() {
   const [boards, setBoards] = useState<any[]>([])
   const [selectedBoard, setSelectedBoard] = useState('')
   const [selectedList, setSelectedList] = useState('')
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
 
   useEffect(() => {
     checkConnection()
@@ -26,12 +27,13 @@ export default function MappingsPage() {
       if (data.connected && data.connection) {
         setConnected(true)
         // Fetch boards for mapping
-        const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
-        const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${apiKey}&token=${data.connection.token}`
-        const boardsResponse = await fetch(boardsUrl)
-        if (boardsResponse.ok) {
-          const boardsData = await boardsResponse.json()
-          setBoards(boardsData)
+        if (trelloApiKey) {
+          const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${trelloApiKey}&token=${data.connection.token}`
+          const boardsResponse = await fetch(boardsUrl)
+          if (boardsResponse.ok) {
+            const boardsData = await boardsResponse.json()
+            setBoards(boardsData)
+          }
         }
       }
     } catch (err) {

@@ -21,6 +21,7 @@ export default function BoardDetailPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
 
   useEffect(() => {
     params.then(p => {
@@ -43,10 +44,13 @@ export default function BoardDetailPage({ params }: PageProps) {
 
       setConnected(true)
       const token = statusData.connection.token
-      const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
+
+      if (!trelloApiKey) {
+        throw new Error('Trello API key is not configured.')
+      }
 
       // Fetch board details
-      const boardUrl = `https://api.trello.com/1/boards/${id}?key=${apiKey}&token=${token}&fields=name,desc,prefs,url`
+      const boardUrl = `https://api.trello.com/1/boards/${id}?key=${trelloApiKey}&token=${token}&fields=name,desc,prefs,url`
       const boardResponse = await fetch(boardUrl)
       
       if (boardResponse.ok) {
@@ -57,7 +61,7 @@ export default function BoardDetailPage({ params }: PageProps) {
       }
 
       // Fetch lists
-      const listsUrl = `https://api.trello.com/1/boards/${id}/lists?key=${apiKey}&token=${token}&cards=open`
+      const listsUrl = `https://api.trello.com/1/boards/${id}/lists?key=${trelloApiKey}&token=${token}&cards=open`
       const listsResponse = await fetch(listsUrl)
       
       if (listsResponse.ok) {
@@ -67,7 +71,7 @@ export default function BoardDetailPage({ params }: PageProps) {
         // Fetch cards for each list with members and labels
         const cardsData: Record<string, any[]> = {}
         for (const list of listsData) {
-          const cardsUrl = `https://api.trello.com/1/lists/${list.id}/cards?key=${apiKey}&token=${token}&members=true&labels=all&checklists=all`
+          const cardsUrl = `https://api.trello.com/1/lists/${list.id}/cards?key=${trelloApiKey}&token=${token}&members=true&labels=all&checklists=all`
           const cardsResponse = await fetch(cardsUrl)
           if (cardsResponse.ok) {
             cardsData[list.id] = await cardsResponse.json()

@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [status, setStatus] = useState({ shopify: true, trello: false })
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ boards: 0, mappings: 0, eventsToday: 0 })
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
 
   useEffect(() => {
     checkConnections()
@@ -30,12 +31,11 @@ export default function Dashboard() {
       })
 
       // If connected, fetch stats
-      if (trelloData.connected && trelloData.connection) {
-        const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
+      if (trelloData.connected && trelloData.connection && trelloApiKey) {
         const token = trelloData.connection.token
         
         // Get boards count
-        const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${apiKey}&token=${token}`
+        const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${trelloApiKey}&token=${token}`
         const boardsResponse = await fetch(boardsUrl)
         if (boardsResponse.ok) {
           const boards = await boardsResponse.json()

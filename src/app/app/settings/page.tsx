@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(true)
   const [memberInfo, setMemberInfo] = useState<any>(null)
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
 
   useEffect(() => {
     checkConnection()
@@ -26,12 +27,13 @@ export default function SettingsPage() {
         setConnected(true)
         
         // Get member info
-        const apiKey = 'e2dc5f7dcce322a3945a62c228c31fa1'
-        const memberUrl = `https://api.trello.com/1/members/me?key=${apiKey}&token=${data.connection.token}`
-        const memberResponse = await fetch(memberUrl)
-        if (memberResponse.ok) {
-          const member = await memberResponse.json()
-          setMemberInfo(member)
+        if (trelloApiKey) {
+          const memberUrl = `https://api.trello.com/1/members/me?key=${trelloApiKey}&token=${data.connection.token}`
+          const memberResponse = await fetch(memberUrl)
+          if (memberResponse.ok) {
+            const member = await memberResponse.json()
+            setMemberInfo(member)
+          }
         }
       }
     } catch (err) {

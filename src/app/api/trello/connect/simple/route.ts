@@ -51,12 +51,13 @@ export async function POST(request: NextRequest) {
         shopId: shop.id,
         trelloMemberId: memberId,
         token: token,
-        scope: 'read,write',
+        scope: 'read,write,account',
         expiresAt: null,
       },
       update: {
         token: token,
         trelloMemberId: memberId,
+        scope: 'read,write,account',
       },
     });
 
