@@ -98,6 +98,32 @@ export const APP_SUBSCRIPTION_CANCEL = `
   }
 `;
 
+export const CURRENT_APP_INSTALLATION = `
+  query CurrentAppInstallation {
+    currentAppInstallation {
+      activeSubscriptions {
+        id
+        name
+        status
+        createdAt
+        lineItems {
+          id
+          plan {
+            __typename
+            ... on AppRecurringPricing {
+              interval
+              price {
+                amount
+                currencyCode
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const ACCESS_SCOPES_QUERY = `
   query AccessScopes {
     appInstallation {
