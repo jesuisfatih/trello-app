@@ -1,87 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSessionToken } from '@/lib/shopify';
 import prisma from '@/lib/db';
+import { requireSessionContext } from '@/lib/session';
 
 /**
  * Manual Trello connection with API Key + Token
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    let shopDomain: string | null = null;
-
-    // Try to get shop from session token
-    if (authHeader?.startsWith('Bearer ') && authHeader !== 'Bearer null') {
-      try {
-        const sessionToken = authHeader.substring(7);
-        if (sessionToken && sessionToken !== 'null') {
-          const payload = await validateSessionToken(sessionToken);
-          shopDomain = payload.dest.replace('https://', '');
-        }
-      } catch (tokenError) {
-        console.warn('Session token validation failed:', tokenError);
-      }
-    }
-
-    // Fallback: Try to get shop from URL params or cookies
-    if (!shopDomain) {
-      const urlParams = request.nextUrl.searchParams;
-      const host = urlParams.get('host');
-      
-      if (host) {
-        try {
-          const decodedHost = Buffer.from(host, 'base64').toString();
-          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
-          if (shopMatch) {
-            shopDomain = shopMatch[1];
-          }
-          if (!shopDomain) {
-            const storeMatch = decodedHost.match(/store\/([a-zA-Z0-9-]+)/);
-            if (storeMatch) {
-              shopDomain = `${storeMatch[1]}.myshopify.com`;
-            }
-          }
-        } catch (e) {
-          const directMatch = host.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
-          if (directMatch) {
-            shopDomain = directMatch[1];
-          }
-          if (!shopDomain) {
-            const storeMatch = host.match(/store\/([a-zA-Z0-9-]+)/);
-            if (storeMatch) {
-              shopDomain = `${storeMatch[1]}.myshopify.com`;
-            }
-          }
-        }
-      }
-
-      // Try to get from cookies
-      const shopCookie = request.cookies.get('shopify_shop')?.value;
-      if (shopCookie) {
-        shopDomain = shopCookie;
-      }
-    }
-
-    if (!shopDomain) {
-      const explicitShop = request.nextUrl.searchParams.get('shop');
-      if (explicitShop) {
-        shopDomain = explicitShop;
-      }
-    }
-
-    if (!shopDomain) {
-      return NextResponse.json({ 
-        error: 'Unable to determine shop domain. Please ensure you are accessing this from Shopify admin.' 
-      }, { status: 400 });
-    }
-
-    const shop = await prisma.shop.findUnique({
-      where: { domain: shopDomain },
-    });
-
-    if (!shop) {
-      return NextResponse.json({ error: 'Shop not found. Please install the app first.' }, { status: 404 });
-    }
+    const { shop, user } = await requireSessionContext(request);
 
     const body = await request.json();
     const { token } = body;
@@ -144,16 +70,22 @@ export async function POST(request: NextRequest) {
 
     // Save connection
     await prisma.trelloConnection.upsert({
-      where: { shopId: shop.id },
+      where: {
+        shopId_userId: {
+          shopId: shop.id,
+          userId: user.id,
+        },
+      },
       create: {
         shopId: shop.id,
+        userId: user.id,
         trelloMemberId: member.id,
-        token: token,
+        token,
         scope: 'read,write,account',
         expiresAt: null,
       },
       update: {
-        token: token,
+        token,
         trelloMemberId: member.id,
         scope: 'read,write,account',
       },
@@ -161,7 +93,7 @@ export async function POST(request: NextRequest) {
 
       await prisma.eventLog.create({
         data: {
-          shopId: shop.id,
+        shopId: shop.id,
           source: 'trello',
           type: 'manual_token_connected',
           payload: { memberId: member.id, memberName: member.fullName || member.username },
@@ -204,95 +136,33 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    let shopDomain: string | null = null;
+    const { shop, user } = await requireSessionContext(request);
 
-    // Try to get shop from session token
-    if (authHeader?.startsWith('Bearer ') && authHeader !== 'Bearer null') {
-      try {
-        const sessionToken = authHeader.substring(7);
-        if (sessionToken && sessionToken !== 'null') {
-          const payload = await validateSessionToken(sessionToken);
-          shopDomain = payload.dest.replace('https://', '');
-        }
-      } catch (tokenError) {
-        console.warn('Session token validation failed:', tokenError);
-      }
-    }
-
-    // Fallback: Try to get shop from URL params or cookies
-    if (!shopDomain) {
-      const urlParams = request.nextUrl.searchParams;
-      const host = urlParams.get('host');
-      
-      if (host) {
-        try {
-          const decodedHost = Buffer.from(host, 'base64').toString();
-          const shopMatch = decodedHost.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
-          if (shopMatch) {
-            shopDomain = shopMatch[1];
-          }
-          if (!shopDomain) {
-            const storeMatch = decodedHost.match(/store\/([a-zA-Z0-9-]+)/);
-            if (storeMatch) {
-              shopDomain = `${storeMatch[1]}.myshopify.com`;
-            }
-          }
-        } catch (e) {
-          const directMatch = host.match(/([a-zA-Z0-9-]+\.myshopify\.com)/);
-          if (directMatch) {
-            shopDomain = directMatch[1];
-          }
-          if (!shopDomain) {
-            const storeMatch = host.match(/store\/([a-zA-Z0-9-]+)/);
-            if (storeMatch) {
-              shopDomain = `${storeMatch[1]}.myshopify.com`;
-            }
-          }
-        }
-      }
-
-      // Try to get from cookies
-      const shopCookie = request.cookies.get('shopify_shop')?.value;
-      if (shopCookie) {
-        shopDomain = shopCookie;
-      }
-    }
-
-    if (!shopDomain) {
-      const explicitShop = request.nextUrl.searchParams.get('shop');
-      if (explicitShop) {
-        shopDomain = explicitShop;
-      }
-    }
-
-    if (!shopDomain) {
-      return NextResponse.json({ 
-        connected: false,
-        connection: null,
-        error: 'Unable to determine shop domain'
-      }, { status: 200 }); // Return 200 with connected: false instead of error
-    }
-
-    const shop = await prisma.shop.findUnique({
-      where: { domain: shopDomain },
-      include: { trelloConnections: true },
+    let connection = await prisma.trelloConnection.findFirst({
+      where: {
+        shopId: shop.id,
+        userId: user.id,
+      },
     });
 
-    if (!shop) {
-      return NextResponse.json({ 
-        connected: false,
-        connection: null 
-      }, { status: 200 });
+    if (!connection) {
+      connection = await prisma.trelloConnection.findFirst({
+        where: {
+          shopId: shop.id,
+          userId: null,
+        },
+      });
     }
 
-    const connected = shop.trelloConnections.length > 0;
+    const connected = Boolean(connection);
 
     return NextResponse.json({
       connected,
-      connection: connected ? {
-        memberId: shop.trelloConnections[0].trelloMemberId,
-      } : null,
+      connection: connected
+        ? {
+            memberId: connection!.trelloMemberId,
+          }
+        : null,
     });
   } catch (error: any) {
     console.error('Trello connect GET error:', error);

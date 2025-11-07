@@ -1,24 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createTrelloClient } from '@/lib/trello';
-import { checkTrelloRateLimit, exponentialBackoff } from '@/lib/rate-limiter';
-import { updateCardSchema } from '@/lib/validation';
-import prisma from '@/lib/db';
-import { validateSessionToken } from '@/lib/shopify';
+import { NextRequest, NextResponse } from 'next/server'
+import { createTrelloClient } from '@/lib/trello'
+import { checkTrelloRateLimit, exponentialBackoff } from '@/lib/rate-limiter'
+import { updateCardSchema } from '@/lib/validation'
+import { requireSessionContext } from '@/lib/session'
+import { assertTrelloConnection } from '@/lib/trello-connection'
 
-async function getShopFromRequest(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing authorization header');
-  }
-
-  const sessionToken = authHeader.substring(7);
-  const payload = await validateSessionToken(sessionToken);
-  const shop = payload.dest.replace('https://', '');
-
-  return await prisma.shop.findUnique({
-    where: { domain: shop },
-    include: { trelloConnections: true },
-  });
+async function getContext(request: NextRequest) {
+  const { shop, user } = await requireSessionContext(request)
+  const connection = await assertTrelloConnection(shop.id, user.id)
+  return { connection }
 }
 
 export async function GET(
@@ -26,32 +16,21 @@ export async function GET(
   context: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const params = await context.params;
-    const shop = await getShopFromRequest(request);
-    
-    if (!shop || !shop.trelloConnections[0]) {
-      return NextResponse.json(
-        { error: 'Trello not connected' },
-        { status: 401 }
-      );
-    }
+    const params = await context.params
+    const { connection } = await getContext(request)
 
-    const trelloConnection = shop.trelloConnections[0];
-    await checkTrelloRateLimit(trelloConnection.token);
+    await checkTrelloRateLimit(connection.token)
 
-    const client = createTrelloClient(trelloConnection.token);
+    const client = createTrelloClient(connection.token)
+    const card = await exponentialBackoff(() => client.getCard(params.cardId))
 
-    const card = await exponentialBackoff(() =>
-      client.getCard(params.cardId)
-    );
-
-    return NextResponse.json({ card });
+    return NextResponse.json({ card })
   } catch (error: any) {
-    console.error('Get card error:', error);
+    console.error('Get card error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch card' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -60,35 +39,26 @@ export async function PUT(
   context: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const params = await context.params;
-    const shop = await getShopFromRequest(request);
-    
-    if (!shop || !shop.trelloConnections[0]) {
-      return NextResponse.json(
-        { error: 'Trello not connected' },
-        { status: 401 }
-      );
-    }
+    const params = await context.params
+    const { connection } = await getContext(request)
 
-    const trelloConnection = shop.trelloConnections[0];
-    await checkTrelloRateLimit(trelloConnection.token);
+    await checkTrelloRateLimit(connection.token)
 
-    const body = await request.json();
-    const validatedData = updateCardSchema.parse(body);
+    const body = await request.json()
+    const validatedData = updateCardSchema.parse(body)
 
-    const client = createTrelloClient(trelloConnection.token);
-
+    const client = createTrelloClient(connection.token)
     const card = await exponentialBackoff(() =>
       client.updateCard(params.cardId, validatedData as any)
-    );
+    )
 
-    return NextResponse.json({ card });
+    return NextResponse.json({ card })
   } catch (error: any) {
-    console.error('Update card error:', error);
+    console.error('Update card error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to update card' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -97,32 +67,21 @@ export async function DELETE(
   context: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const params = await context.params;
-    const shop = await getShopFromRequest(request);
-    
-    if (!shop || !shop.trelloConnections[0]) {
-      return NextResponse.json(
-        { error: 'Trello not connected' },
-        { status: 401 }
-      );
-    }
+    const params = await context.params
+    const { connection } = await getContext(request)
 
-    const trelloConnection = shop.trelloConnections[0];
-    await checkTrelloRateLimit(trelloConnection.token);
+    await checkTrelloRateLimit(connection.token)
 
-    const client = createTrelloClient(trelloConnection.token);
+    const client = createTrelloClient(connection.token)
+    await exponentialBackoff(() => client.deleteCard(params.cardId))
 
-    await exponentialBackoff(() =>
-      client.deleteCard(params.cardId)
-    );
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Delete card error:', error);
+    console.error('Delete card error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to delete card' },
       { status: 500 }
-    );
+    )
   }
 }
 

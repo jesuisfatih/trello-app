@@ -34,22 +34,28 @@ export async function processMappings(
     const settings = await prisma.settings.findUnique({
       where: { shopId },
       include: {
-        shop: {
-          include: {
-            trelloConnections: true,
-          },
-        },
+        shop: true,
       },
-    });
+    })
 
-    if (!settings || !settings.shop.trelloConnections[0]) {
-      console.log('No Trello connection for mapping');
-      return;
+    if (!settings) {
+      console.log('No settings found for shop')
+      return
     }
 
-    const mappingOptions = settings.mappingOptions as any;
-    const trelloToken = settings.shop.trelloConnections[0].token;
-    const trelloClient = createTrelloClient(trelloToken);
+    const connection = await prisma.trelloConnection.findFirst({
+      where: { shopId },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    if (!connection) {
+      console.log('No Trello connection for mapping')
+      return
+    }
+
+    const mappingOptions = settings.mappingOptions as any
+    const trelloToken = connection.token
+    const trelloClient = createTrelloClient(trelloToken)
 
     // Process based on webhook topic
     switch (webhookTopic) {

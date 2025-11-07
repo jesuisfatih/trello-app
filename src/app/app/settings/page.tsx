@@ -7,6 +7,7 @@ import { Card } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
 import { CheckCircle2, ShieldCheck, XCircle } from 'lucide-react'
+import { useAppBridge } from '@/lib/app-bridge-provider'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ const FALLBACK_BILLING_PLANS: BillingPlan[] = [
 
 export default function SettingsPage() {
   const searchParams = useSearchParams()
+  const { authenticatedFetch } = useAppBridge()
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(true)
   const [memberInfo, setMemberInfo] = useState<any>(null)
@@ -79,7 +81,7 @@ export default function SettingsPage() {
 
   async function checkConnection() {
     try {
-      const response = await fetch('/api/trello/status')
+      const response = await authenticatedFetch('/api/trello/status')
       const data = await response.json()
       
       if (data.connected && data.connection) {
@@ -101,7 +103,7 @@ export default function SettingsPage() {
   async function loadBillingStatus() {
     try {
       setBillingStatusError(null)
-      const response = await fetch('/api/shopify/billing', {
+      const response = await authenticatedFetch('/api/shopify/billing', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +146,7 @@ export default function SettingsPage() {
       setBillingError(null)
       setBillingActionLoading(plan)
 
-      const response = await fetch('/api/shopify/billing', {
+      const response = await authenticatedFetch('/api/shopify/billing', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +200,7 @@ export default function SettingsPage() {
     }
 
     try {
-      const response = await fetch('/api/trello/disconnect', {
+      const response = await authenticatedFetch('/api/trello/disconnect', {
         method: 'POST',
       })
 

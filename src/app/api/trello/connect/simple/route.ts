@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireSessionContext } from '@/lib/session';
 
 /**
  * SIMPLE Trello connection - No Shopify session token required
@@ -7,6 +8,8 @@ import prisma from '@/lib/db';
  */
 export async function POST(request: NextRequest) {
   try {
+    const { shop, user } = await requireSessionContext(request);
+
     const body = await request.json();
     const { token, memberId, memberName } = body;
 
@@ -14,48 +17,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token and memberId required' }, { status: 400 });
     }
 
-    // Get shop from cookie (set during Shopify OAuth install)
-    let shopCookie = request.cookies.get('shopify_shop')?.value;
-    let shop;
-
-    if (!shopCookie) {
-      // Fallback: Use a default shop or create one
-      // For development, we'll create a demo shop
-      shop = await prisma.shop.upsert({
-        where: { domain: 'demo.myshopify.com' },
-        create: {
-          domain: 'demo.myshopify.com',
-          status: 'active',
-          plan: 'development',
-        },
-        update: {},
-      });
-    } else {
-      const normalizedShop = shopCookie.toLowerCase();
-
-      shop = await prisma.shop.upsert({
-        where: { domain: normalizedShop },
-        create: {
-          domain: normalizedShop,
-          status: 'active',
-          plan: 'development',
-        },
-        update: {},
-      });
-    }
-
-    // Save connection
     await prisma.trelloConnection.upsert({
-      where: { shopId: shop.id },
+      where: {
+        shopId_userId: {
+          shopId: shop.id,
+          userId: user.id,
+        },
+      },
       create: {
         shopId: shop.id,
+        userId: user.id,
         trelloMemberId: memberId,
-        token: token,
+        token,
         scope: 'read,write,account',
         expiresAt: null,
       },
       update: {
-        token: token,
+        token,
         trelloMemberId: memberId,
         scope: 'read,write,account',
       },

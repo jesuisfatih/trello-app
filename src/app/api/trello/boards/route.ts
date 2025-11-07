@@ -2,39 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createTrelloClient } from '@/lib/trello';
 import { checkTrelloRateLimit, exponentialBackoff } from '@/lib/rate-limiter';
 import prisma from '@/lib/db';
-import { validateSessionToken } from '@/lib/shopify';
+import { requireSessionContext } from '@/lib/session';
+import { assertTrelloConnection } from '@/lib/trello-connection';
 
-async function getShopFromRequest(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing authorization header');
-  }
-
-  const sessionToken = authHeader.substring(7);
-  const payload = await validateSessionToken(sessionToken);
-  const shop = payload.dest.replace('https://', '');
-
-  return await prisma.shop.findUnique({
-    where: { domain: shop },
-    include: { trelloConnections: true },
-  });
+async function getContext(request: NextRequest) {
+  const { shop, user } = await requireSessionContext(request);
+  const connection = await assertTrelloConnection(shop.id, user.id);
+  return { shop, user, connection };
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const shop = await getShopFromRequest(request);
-    
-    if (!shop || !shop.trelloConnections[0]) {
-      return NextResponse.json(
-        { error: 'Trello not connected' },
-        { status: 401 }
-      );
-    }
+    const { connection } = await getContext(request);
 
-    const trelloConnection = shop.trelloConnections[0];
-    await checkTrelloRateLimit(trelloConnection.token);
+    await checkTrelloRateLimit(connection.token);
 
-    const client = createTrelloClient(trelloConnection.token);
+    const client = createTrelloClient(connection.token);
 
     const boards = await exponentialBackoff(() => client.getBoards());
 
@@ -50,17 +33,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const shop = await getShopFromRequest(request);
-    
-    if (!shop || !shop.trelloConnections[0]) {
-      return NextResponse.json(
-        { error: 'Trello not connected' },
-        { status: 401 }
-      );
-    }
+    const { shop, connection } = await getContext(request);
 
-    const trelloConnection = shop.trelloConnections[0];
-    await checkTrelloRateLimit(trelloConnection.token);
+    await checkTrelloRateLimit(connection.token);
 
     const body = await request.json();
     const { name, desc, defaultLists } = body;
@@ -72,7 +47,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = createTrelloClient(trelloConnection.token);
+    const client = createTrelloClient(connection.token);
 
     const board = await exponentialBackoff(() =>
       client.createBoard(name, { desc, defaultLists })

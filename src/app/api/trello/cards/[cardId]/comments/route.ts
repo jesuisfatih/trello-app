@@ -1,58 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createTrelloClient } from '@/lib/trello';
-import { checkTrelloRateLimit, exponentialBackoff } from '@/lib/rate-limiter';
-import { addCommentSchema } from '@/lib/validation';
-import prisma from '@/lib/db';
-import { validateSessionToken } from '@/lib/shopify';
+import { NextRequest, NextResponse } from 'next/server'
+import { createTrelloClient } from '@/lib/trello'
+import { checkTrelloRateLimit, exponentialBackoff } from '@/lib/rate-limiter'
+import { requireSessionContext } from '@/lib/session'
+import { assertTrelloConnection } from '@/lib/trello-connection'
 
-async function getShopFromRequest(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing authorization header');
-  }
-
-  const sessionToken = authHeader.substring(7);
-  const payload = await validateSessionToken(sessionToken);
-  const shop = payload.dest.replace('https://', '');
-
-  return await prisma.shop.findUnique({
-    where: { domain: shop },
-    include: { trelloConnections: true },
-  });
-}
-
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ cardId: string }> }
-) {
-  try {
-    const params = await context.params;
-    const shop = await getShopFromRequest(request);
-    
-    if (!shop || !shop.trelloConnections[0]) {
-      return NextResponse.json(
-        { error: 'Trello not connected' },
-        { status: 401 }
-      );
-    }
-
-    const trelloConnection = shop.trelloConnections[0];
-    await checkTrelloRateLimit(trelloConnection.token);
-
-    const client = createTrelloClient(trelloConnection.token);
-
-    const comments = await exponentialBackoff(() =>
-      client.getComments(params.cardId)
-    );
-
-    return NextResponse.json({ comments });
-  } catch (error: any) {
-    console.error('Get comments error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch comments' },
-      { status: 500 }
-    );
-  }
+async function getContext(request: NextRequest) {
+  const { shop, user } = await requireSessionContext(request)
+  const connection = await assertTrelloConnection(shop.id, user.id)
+  return { connection }
 }
 
 export async function POST(
@@ -60,45 +15,29 @@ export async function POST(
   context: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const params = await context.params;
-    const shop = await getShopFromRequest(request);
-    
-    if (!shop || !shop.trelloConnections[0]) {
-      return NextResponse.json(
-        { error: 'Trello not connected' },
-        { status: 401 }
-      );
+    const params = await context.params
+    const { connection } = await getContext(request)
+
+    await checkTrelloRateLimit(connection.token)
+
+    const body = await request.json()
+
+    if (!body?.text) {
+      return NextResponse.json({ error: 'Comment text is required' }, { status: 400 })
     }
 
-    const trelloConnection = shop.trelloConnections[0];
-    await checkTrelloRateLimit(trelloConnection.token);
-
-    const body = await request.json();
-    const { text } = addCommentSchema.parse(body);
-
-    const client = createTrelloClient(trelloConnection.token);
-
+    const client = createTrelloClient(connection.token)
     const comment = await exponentialBackoff(() =>
-      client.addComment(params.cardId, text)
-    );
+      client.addComment(params.cardId, body.text)
+    )
 
-    await prisma.eventLog.create({
-      data: {
-        shopId: shop.id,
-        source: 'trello',
-        type: 'comment_added',
-        payload: { cardId: params.cardId, commentId: comment.id },
-        status: 'success',
-      },
-    });
-
-    return NextResponse.json({ comment });
+    return NextResponse.json({ comment })
   } catch (error: any) {
-    console.error('Add comment error:', error);
+    console.error('Add comment error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to add comment' },
       { status: 500 }
-    );
+    )
   }
 }
 

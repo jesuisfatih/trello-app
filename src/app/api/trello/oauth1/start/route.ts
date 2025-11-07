@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OAuth from 'oauth-1.0a'
 import crypto from 'crypto'
+import { requireSessionContext } from '@/lib/session'
 
 const REQUEST_TOKEN_COOKIE = 'trello_oauth_request_token'
 const REQUEST_SECRET_COOKIE = 'trello_oauth_request_secret'
+const USER_COOKIE = 'trello_oauth_user'
 const APP_NAME = 'SEO DROME TEAM'
 
 const OAUTH_REQUEST_URL = 'https://trello.com/1/OAuthGetRequestToken'
@@ -24,6 +26,8 @@ function createOAuthClient(apiKey: string, apiSecret: string) {
 
 export async function GET(request: NextRequest) {
   try {
+    const { shop, user } = await requireSessionContext(request)
+
     const apiKey = process.env.TRELLO_API_KEY
     const apiSecret = process.env.TRELLO_API_SECRET
 
@@ -109,6 +113,23 @@ export async function GET(request: NextRequest) {
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 5,
+    })
+
+    response.cookies.set(USER_COOKIE, user.id, {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 5,
+    })
+
+    // Ensure shop context cookies persist for callback
+    response.cookies.set('shopify_shop', shop.domain, {
+      httpOnly: false,
+      secure,
+      sameSite: secure ? 'none' : 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
     })
 
     return response

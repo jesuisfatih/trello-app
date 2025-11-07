@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
+import { Badge } from '@/ui/components/Card'
+import { CheckCircle2, Zap } from 'lucide-react'
+import { useAppBridge } from '@/lib/app-bridge-provider'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +15,7 @@ const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
 export default function MappingsPage() {
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { authenticatedFetch } = useAppBridge()
   const [boards, setBoards] = useState<any[]>([])
   const [selectedBoard, setSelectedBoard] = useState('')
   const [selectedList, setSelectedList] = useState('')
@@ -23,7 +27,7 @@ export default function MappingsPage() {
 
   async function checkConnection() {
     try {
-      const response = await fetch('/api/trello/status')
+      const response = await authenticatedFetch('/api/trello/status')
       const data = await response.json()
       
       if (data.connected && data.connection) {

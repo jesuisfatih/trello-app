@@ -1,47 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/db'
+import { requireSessionContext } from '@/lib/session'
 
 /**
- * Disconnect Trello - Remove connection
+ * Disconnect Trello - Remove connection for current user
  */
 export async function POST(request: NextRequest) {
   try {
-    const shopCookie = request.cookies.get('shopify_shop')?.value;
-    
-    if (!shopCookie) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
-    }
+    const { shop, user } = await requireSessionContext(request)
 
-    const shop = await prisma.shop.findUnique({
-      where: { domain: shopCookie },
-    });
-
-    if (!shop) {
-      return NextResponse.json({ error: 'Shop not found' }, { status: 404 });
-    }
-
-    // Delete Trello connection
     await prisma.trelloConnection.deleteMany({
-      where: { shopId: shop.id },
-    });
+      where: {
+        shopId: shop.id,
+        OR: [{ userId: user.id }, { userId: null }],
+      },
+    })
 
     await prisma.eventLog.create({
       data: {
         shopId: shop.id,
         source: 'trello',
         type: 'disconnected',
-        payload: {},
+        payload: { userId: user.id },
         status: 'success',
       },
-    });
+    })
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Disconnect error:', error);
+    console.error('Disconnect error:', error)
     return NextResponse.json(
       { error: error.message },
       { status: 500 }
-    );
+    )
   }
 }
 

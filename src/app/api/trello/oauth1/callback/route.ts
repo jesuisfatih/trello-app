@@ -6,6 +6,7 @@ import { getShopDomainFromRequest, setShopCookies } from '@/lib/shop'
 
 const REQUEST_TOKEN_COOKIE = 'trello_oauth_request_token'
 const REQUEST_SECRET_COOKIE = 'trello_oauth_request_secret'
+const USER_COOKIE = 'trello_oauth_user'
 
 const ACCESS_TOKEN_URL = 'https://trello.com/1/OAuthGetAccessToken'
 
@@ -25,6 +26,7 @@ function createOAuthClient(apiKey: string, apiSecret: string) {
 function clearRequestCookies(response: NextResponse) {
   response.cookies.set(REQUEST_TOKEN_COOKIE, '', { path: '/', maxAge: 0 })
   response.cookies.set(REQUEST_SECRET_COOKIE, '', { path: '/', maxAge: 0 })
+  response.cookies.set(USER_COOKIE, '', { path: '/', maxAge: 0 })
 }
 
 export async function GET(request: NextRequest) {
@@ -86,6 +88,18 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const userId = request.cookies.get(USER_COOKIE)?.value
+
+    if (!userId) {
+      return errorRedirect('Unable to identify Shopify user during Trello OAuth. Please retry from the app.')
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+
+    if (!user || user.shopId !== shop.id) {
+      return errorRedirect('Trello OAuth session user could not be verified. Please restart the connection.')
+    }
+
     const oauth = createOAuthClient(apiKey, apiSecret)
     const scope = process.env.TRELLO_OAUTH1_SCOPE || 'read,write,account'
 
@@ -145,9 +159,15 @@ export async function GET(request: NextRequest) {
     }
 
     await prisma.trelloConnection.upsert({
-      where: { shopId: shop.id },
+      where: {
+        shopId_userId: {
+          shopId: shop.id,
+          userId: user.id,
+        },
+      },
       create: {
         shopId: shop.id,
+        userId: user.id,
         trelloMemberId: member.id,
         token: accessToken,
         scope,
@@ -169,6 +189,7 @@ export async function GET(request: NextRequest) {
         payload: {
           memberId: member.id,
           memberName: member.fullName || member.username,
+          userId: user.id,
         },
         status: 'success',
       },

@@ -54,6 +54,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const userId = request.cookies.get('trello_oauth_user')?.value
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unable to determine Shopify user for Trello connection' },
+        { status: 400 }
+      )
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+
+    if (!user || user.shopId !== shop.id) {
+      return NextResponse.json(
+        { error: 'Trello OAuth user could not be verified' },
+        { status: 400 }
+      )
+    }
+
     // Exchange authorization code for access token
     const clientId = process.env.TRELLO_CLIENT_ID || process.env.TRELLO_API_KEY;
     const clientSecret = process.env.TRELLO_CLIENT_SECRET || process.env.TRELLO_API_SECRET;
@@ -119,9 +137,15 @@ export async function GET(request: NextRequest) {
 
     // Store Trello connection
     await prisma.trelloConnection.upsert({
-      where: { shopId: shop.id },
+      where: {
+        shopId_userId: {
+          shopId: shop.id,
+          userId: user.id,
+        },
+      },
       create: {
         shopId: shop.id,
+        userId: user.id,
         trelloMemberId: userInfo.account_id || userInfo.email,
         token: accessToken,
         refreshToken: refreshToken,
@@ -145,6 +169,7 @@ export async function GET(request: NextRequest) {
         payload: {
           memberId: userInfo.account_id,
           memberName: userInfo.name || userInfo.email,
+          userId: user.id,
         },
         status: 'success',
       },
@@ -157,6 +182,8 @@ export async function GET(request: NextRequest) {
     );
 
     const response = NextResponse.redirect(redirectUrl);
+
+    response.cookies.set('trello_oauth_user', '', { path: '/', maxAge: 0 })
 
     if (hostValue) {
       response.cookies.set('shopify_host', hostValue, {

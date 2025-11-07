@@ -6,6 +6,7 @@ import { CheckCircle2, XCircle, FolderKanban, Link2, FileText, Settings, ArrowRi
 import { Card } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Card'
+import { useAppBridge } from '@/lib/app-bridge-provider'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ boards: 0, mappings: 0, eventsToday: 0 })
   const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
+  const { authenticatedFetch } = useAppBridge()
 
   useEffect(() => {
     checkConnections()
@@ -24,7 +26,7 @@ export default function Dashboard() {
   async function checkConnections() {
     try {
       // Check Trello connection
-      const trelloResponse = await fetch('/api/trello/status')
+      const trelloResponse = await authenticatedFetch('/api/trello/status')
       const trelloData = await trelloResponse.json()
       
       setStatus({

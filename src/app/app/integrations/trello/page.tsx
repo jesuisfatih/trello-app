@@ -6,6 +6,7 @@ import { Key, CheckCircle2, XCircle, ExternalLink, ShieldCheck, Lock, Tag } from
 import { Card } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Card'
+import { useAppBridge } from '@/lib/app-bridge-provider'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,7 @@ const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
 
 export default function TrelloIntegrationPage() {
   const router = useRouter()
+  const { authenticatedFetch } = useAppBridge()
   const [token, setToken] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
@@ -28,7 +30,7 @@ export default function TrelloIntegrationPage() {
 
   async function checkConnection() {
     try {
-      const response = await fetch('/api/trello/status')
+      const response = await authenticatedFetch('/api/trello/status')
       const data = await response.json()
       
       if (data.connected && data.connection) {
@@ -79,7 +81,7 @@ export default function TrelloIntegrationPage() {
       const member = await testResponse.json()
       
       // Save to our backend (with simple cookie-based shop identification)
-      const saveResponse = await fetch('/api/trello/connect/simple', {
+      const saveResponse = await authenticatedFetch('/api/trello/connect/simple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +116,7 @@ export default function TrelloIntegrationPage() {
     setError(null)
     setOauthLoading(true)
     try {
-      const response = await fetch('/api/trello/oauth1/start', {
+      const response = await authenticatedFetch('/api/trello/oauth1/start', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

@@ -12,6 +12,7 @@ import {
   Trash2,
   GripVertical,
 } from "lucide-react"
+import { useAppBridge } from "@/lib/app-bridge-provider"
 
 export const dynamic = "force-dynamic"
 
@@ -46,6 +47,7 @@ export default function BoardDetailPage({ params }: PageProps) {
   const cardDragDataRef = useRef<CardDragData | null>(null)
   const listDragDataRef = useRef<ListDragData | null>(null)
   const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
+  const { authenticatedFetch } = useAppBridge()
 
   useEffect(() => {
     params.then((p) => {
@@ -60,7 +62,7 @@ export default function BoardDetailPage({ params }: PageProps) {
     }
 
     try {
-      const response = await fetch("/api/trello/status")
+      const response = await authenticatedFetch("/api/trello/status")
       const data = await response.json()
 
       if (data.connected && data.connection?.token) {
@@ -79,7 +81,7 @@ export default function BoardDetailPage({ params }: PageProps) {
 
   async function loadBoardData(id: string) {
     try {
-      const statusResponse = await fetch("/api/trello/status")
+      const statusResponse = await authenticatedFetch("/api/trello/status")
       const statusData = await statusResponse.json()
 
       if (!statusData.connected || !statusData.connection) {

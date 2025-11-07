@@ -1,42 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireSessionContext } from '@/lib/session';
 
 /**
  * Check Trello connection status - Simple version
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get shop from cookie
-    const shopCookie = request.cookies.get('shopify_shop')?.value;
-    
-    if (!shopCookie) {
-      // No cookie - return not connected
-      return NextResponse.json({ 
-        connected: false,
-        connection: null 
-      });
-    }
+    const { shop, user } = await requireSessionContext(request);
 
-    const shop = await prisma.shop.findUnique({
-      where: { domain: shopCookie },
-      include: { trelloConnections: true },
+    let connection = await prisma.trelloConnection.findFirst({
+      where: {
+        shopId: shop.id,
+        userId: user.id,
+      },
     });
 
-    if (!shop) {
-      return NextResponse.json({ 
-        connected: false,
-        connection: null 
+    if (!connection) {
+      connection = await prisma.trelloConnection.findFirst({
+        where: {
+          shopId: shop.id,
+          userId: null,
+        },
       });
     }
 
-    const connected = shop.trelloConnections.length > 0;
+    const connected = Boolean(connection);
 
     return NextResponse.json({
       connected,
-      connection: connected ? {
-        memberId: shop.trelloConnections[0].trelloMemberId,
-        token: shop.trelloConnections[0].token,
-      } : null,
+      connection: connected
+        ? {
+            memberId: connection!.trelloMemberId,
+            token: connection!.token,
+          }
+        : null,
     });
   } catch (error: any) {
     console.error('Trello connection check error:', error);
