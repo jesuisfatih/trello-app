@@ -36,6 +36,7 @@ model User {
   sub       String?   // Shopify user sub from session token
   sid       String?   // Shopify session ID
   role      String    @default("merchant") // merchant, staff
+  notifyTrelloActivity Boolean @default(true)
 
   shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   trelloConnections TrelloConnection[]
@@ -121,6 +122,7 @@ model Settings {
   defaultBoardId  String?
   defaultListId   String?
   mappingOptions  Json?     // Shopify to Trello mapping rules
+  notificationOptions Json?
   
   shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   

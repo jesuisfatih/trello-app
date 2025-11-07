@@ -164,12 +164,12 @@ export async function GET(request: NextRequest) {
     await prisma.eventLog.create({
       data: {
         shopId: shop.id,
+        userId: user.id,
         source: 'trello',
         type: 'oauth_connected',
         payload: {
           memberId: userInfo.account_id,
           memberName: userInfo.name || userInfo.email,
-          userId: user.id,
         },
         status: 'success',
       },

@@ -56,6 +56,8 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const latestEventTimestampRef = useRef<number>(0);
+  const notificationsEnabledRef = useRef<boolean>(true);
+  const pollIntervalRef = useRef<number>(30000);
 
   useEffect(() => {
     const initAppBridge = async () => {
@@ -239,6 +241,26 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
         }
 
         const data = await response.json();
+        if (typeof data?.preferences === 'object') {
+          if (typeof data.preferences.notify === 'boolean') {
+            notificationsEnabledRef.current = data.preferences.notify;
+          }
+          if (typeof data.preferences.pollIntervalSeconds === 'number') {
+            const interval = Math.max(10, Math.min(300, data.preferences.pollIntervalSeconds)) * 1000;
+            if (pollIntervalRef.current !== interval) {
+              pollIntervalRef.current = interval;
+              if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = setInterval(fetchEvents, pollIntervalRef.current);
+              }
+            }
+          }
+        }
+
+        if (!notificationsEnabledRef.current) {
+          return;
+        }
+
         if (!Array.isArray(data.events)) {
           return;
         }
@@ -274,7 +296,7 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       await fetchEvents();
       if (cancelled) return;
-      intervalId = setInterval(fetchEvents, 30000);
+      intervalId = setInterval(fetchEvents, pollIntervalRef.current);
     };
 
     start();

@@ -55,7 +55,7 @@ const FALLBACK_BILLING_PLANS: BillingPlan[] = [
 
 export default function SettingsPage() {
   const searchParams = useSearchParams()
-  const { authenticatedFetch } = useAppBridge()
+  const { authenticatedFetch, describeTrelloEvent } = useAppBridge()
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(true)
   const [memberInfo, setMemberInfo] = useState<any>(null)
@@ -64,13 +64,21 @@ export default function SettingsPage() {
   const [billingStatusError, setBillingStatusError] = useState<string | null>(null)
   const [billingError, setBillingError] = useState<string | null>(null)
   const [billingActionLoading, setBillingActionLoading] = useState<PlanKey | null>(null)
+  const [notificationLoading, setNotificationLoading] = useState(true)
+  const [notificationSaving, setNotificationSaving] = useState(false)
+  const [notifyEnabled, setNotifyEnabled] = useState(true)
+  const [pollInterval, setPollInterval] = useState(30)
+  const [notificationError, setNotificationError] = useState<string | null>(null)
+  const [teamLoading, setTeamLoading] = useState(true)
+  const [teamError, setTeamError] = useState<string | null>(null)
+  const [teamUsers, setTeamUsers] = useState<any[]>([])
   const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
     async function initialize() {
       setLoading(true)
       try {
-        await Promise.all([checkConnection(), loadBillingStatus()])
+        await Promise.all([checkConnection(), loadBillingStatus(), loadNotificationPreferences(), loadTeamUsers()])
       } finally {
         setLoading(false)
       }
@@ -138,6 +146,80 @@ export default function SettingsPage() {
     } catch (err: any) {
       console.error('Billing status load failed:', err)
       setBillingStatusError(err.message || 'Unable to load billing status')
+    }
+  }
+
+  async function loadNotificationPreferences() {
+    try {
+      setNotificationLoading(true)
+      setNotificationError(null)
+      const response = await authenticatedFetch('/api/trello/preferences', {
+        method: 'GET',
+      })
+      if (!response.ok) {
+        return
+      }
+      const data = await response.json()
+      if (typeof data.notify === 'boolean') {
+        setNotifyEnabled(data.notify)
+      }
+      if (typeof data.pollIntervalSeconds === 'number') {
+        setPollInterval(data.pollIntervalSeconds)
+      }
+    } catch (error) {
+      console.warn('Failed to load notification preferences:', error)
+    } finally {
+      setNotificationLoading(false)
+    }
+  }
+
+  async function updateNotificationPreferences(preferences: { notify?: boolean; pollIntervalSeconds?: number }) {
+    try {
+      setNotificationSaving(true)
+      setNotificationError(null)
+      const response = await authenticatedFetch('/api/trello/preferences', {
+        method: 'PUT',
+        body: JSON.stringify(preferences),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to update notification settings')
+      }
+
+      const data = await response.json()
+      if (typeof data.notify === 'boolean') {
+        setNotifyEnabled(data.notify)
+      }
+      if (typeof data.pollIntervalSeconds === 'number') {
+        setPollInterval(data.pollIntervalSeconds)
+      }
+    } catch (error: any) {
+      console.error('Notification settings update failed:', error)
+      setNotificationError(error.message || 'Failed to update notification settings')
+    } finally {
+      setNotificationSaving(false)
+    }
+  }
+
+  async function loadTeamUsers() {
+    try {
+      setTeamLoading(true)
+      setTeamError(null)
+      const response = await authenticatedFetch('/api/trello/users', {
+        method: 'GET',
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to load users')
+      }
+      const data = await response.json()
+      setTeamUsers(Array.isArray(data.users) ? data.users : [])
+    } catch (error: any) {
+      console.error('Failed to load Trello users:', error)
+      setTeamError(error.message || 'Failed to load team members')
+    } finally {
+      setTeamLoading(false)
     }
   }
 
@@ -385,6 +467,64 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Trello Activity Alerts</h2>
+            <p className="text-sm text-gray-500">Control in-admin notifications for Trello board activity.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-medium ${notifyEnabled ? 'text-green-600' : 'text-gray-500'}`}>
+              {notifyEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+            <button
+              type="button"
+              disabled={notificationLoading || notificationSaving}
+              onClick={() => updateNotificationPreferences({ notify: !notifyEnabled })}
+              className={`flex items-center rounded-full border px-4 py-1 text-sm transition-colors ${
+                notifyEnabled
+                  ? 'border-green-200 bg-green-100 text-green-700 hover:bg-green-200'
+                  : 'border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200'
+              } ${notificationSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+            >
+              {notificationSaving ? 'Saving...' : notifyEnabled ? 'Disable' : 'Enable'}
+            </button>
+          </div>
+        </div>
+        {notificationError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            {notificationError}
+          </div>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Polling interval</label>
+            <select
+              value={pollInterval}
+              disabled={notificationLoading || notificationSaving}
+              onChange={(event) => updateNotificationPreferences({ pollIntervalSeconds: Number(event.target.value) })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {[10, 20, 30, 60, 120, 180].map((value) => (
+                <option key={value} value={value}>
+                  {value} seconds
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-gray-500">We recommend 30 seconds. Shorter intervals deliver alerts faster but may increase API usage.</p>
+          </div>
+          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+            <p className="font-semibold text-gray-800 mb-2">Alert examples</p>
+            <ul className="space-y-1">
+              <li>🆕 Trello card created</li>
+              <li>↔️ Card moved between lists</li>
+              <li>💬 New comment added</li>
+              <li>🗑️ Card archived or deleted</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
+
       {/* App Info */}
       <Card>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Application Info</h2>
@@ -401,6 +541,79 @@ export default function SettingsPage() {
             <span className="text-gray-600">Environment</span>
             <span className="font-medium text-gray-900">Production</span>
           </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Team Trello Activity</h2>
+            <p className="text-sm text-gray-500">See which Shopify staff are connected to Trello and their latest actions.</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            isLoading={teamLoading}
+            onClick={loadTeamUsers}
+          >
+            Refresh
+          </Button>
+        </div>
+        {teamError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            {teamError}
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">User</th>
+                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Trello member</th>
+                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Notifications</th>
+                <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Last activity</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {teamUsers.length === 0 && !teamLoading ? (
+                <tr>
+                  <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={4}>
+                    No team members have connected to Trello yet.
+                  </td>
+                </tr>
+              ) : (
+                teamUsers.map((user) => {
+                  const latestEvent = user.latestEvent
+                  const eventMessage = latestEvent ? `${describeTrelloEvent(latestEvent) ?? 'Activity recorded'} · ${new Date(latestEvent.createdAt).toLocaleString()}` : 'No recent activity'
+                  return (
+                    <tr key={user.id}>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        <div className="font-semibold text-gray-900">{user.email || user.sub || 'Unknown user'}</div>
+                        <div className="text-xs text-gray-500">Role: {user.role}</div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {user.trelloMemberId ? (
+                          <span className="text-gray-900">{user.trelloMemberId}</span>
+                        ) : (
+                          <span className="text-gray-400">Not connected</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {user.notify ? (
+                          <Badge variant="success">Enabled</Badge>
+                        ) : (
+                          <Badge variant="default">Disabled</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        <span className="text-gray-600">{eventMessage}</span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>

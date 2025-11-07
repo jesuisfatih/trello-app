@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
     await prisma.eventLog.create({
       data: {
         shopId: shop.id,
+        userId: user.id,
         source: 'trello',
         type: 'disconnected',
         payload: { userId: user.id },
