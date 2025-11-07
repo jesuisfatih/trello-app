@@ -402,8 +402,8 @@ export default function BoardDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm px-6 py-5">
+    <div className="space-y-6 -mx-4 sm:-mx-6 lg:-mx-8">
+      <div className="rounded-2xl border border-gray-200 bg-white px-4 py-5 shadow-sm sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/app/boards">
@@ -435,9 +435,9 @@ export default function BoardDetailPage({ params }: PageProps) {
       </div>
 
       <div className="overflow-x-auto pb-6">
-        <div className="flex min-w-max gap-4">
+        <div className="flex w-full flex-wrap gap-4 md:flex-nowrap">
           {lists.map((list) => (
-            <div key={list.id} className="flex w-80 flex-shrink-0 flex-col">
+            <div key={list.id} className="flex w-full flex-shrink-0 flex-col md:w-80">
               <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between rounded-t-xl border-b border-gray-200 bg-gray-50 px-4 py-3">
                   <h3 className="font-semibold text-gray-900">{list.name}</h3>
@@ -462,6 +462,8 @@ export default function BoardDetailPage({ params }: PageProps) {
                       draggable
                       onDragStart={(event) => handleDragStart(event, card.id, list.id)}
                       className="group relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-blue-200 hover:shadow-md"
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => handleListDrop(event, list.id)}
                     >
                       {card.labels && card.labels.length > 0 && (
                         <div className="mb-2 flex flex-wrap gap-1">
