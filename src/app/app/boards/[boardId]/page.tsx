@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Plus, MoreVertical, User, Calendar, Edit, Trash2 } from "lucide-react"
+import {
+  ArrowLeft,
+  Plus,
+  MoreVertical,
+  User,
+  Calendar,
+  Edit,
+  Trash2,
+  GripVertical,
+} from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -10,12 +19,19 @@ interface PageProps {
   params: Promise<{ boardId: string }>
 }
 
-interface DragData {
+interface CardDragData {
   cardId: string
   fromListId: string
 }
 
+interface ListDragData {
+  listId: string
+  originalIndex: number
+}
+
 const FALLBACK_TRELLO_API_KEY = "700a7218afc6cb86683668584a52645b"
+const CARD_DRAG_MIME = "application/x-trello-card"
+const LIST_DRAG_MIME = "application/x-trello-list"
 
 export default function BoardDetailPage({ params }: PageProps) {
   const [boardId, setBoardId] = useState<string>("")
@@ -27,7 +43,8 @@ export default function BoardDetailPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null)
   const [trelloToken, setTrelloToken] = useState<string | null>(null)
   const [newCardTitles, setNewCardTitles] = useState<Record<string, string>>({})
-  const dragDataRef = useRef<DragData | null>(null)
+  const cardDragDataRef = useRef<CardDragData | null>(null)
+  const listDragDataRef = useRef<ListDragData | null>(null)
   const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
@@ -248,17 +265,20 @@ export default function BoardDetailPage({ params }: PageProps) {
     }
   }
 
-  async function handleListDrop(
-    event: React.DragEvent<HTMLDivElement>,
+  async function handleCardDrop(
+    event: React.DragEvent<HTMLElement>,
     targetListId: string
   ) {
+    if (!event.dataTransfer?.types?.includes(CARD_DRAG_MIME)) {
+      return
+    }
+
     event.preventDefault()
 
-    const dragData = dragDataRef.current
-    dragDataRef.current = null
+    const dragData = cardDragDataRef.current
+    cardDragDataRef.current = null
 
-    const transferredCardId = event.dataTransfer.getData("text/plain")
-    const cardId = transferredCardId || dragData?.cardId
+    const cardId = event.dataTransfer.getData(CARD_DRAG_MIME) || event.dataTransfer.getData("text/plain")
 
     if (!dragData || !cardId) {
       return
@@ -306,14 +326,115 @@ export default function BoardDetailPage({ params }: PageProps) {
     }
   }
 
-  function handleDragStart(
-    event: React.DragEvent<HTMLDivElement>,
+  function handleCardDragStart(
+    event: React.DragEvent<HTMLElement>,
     cardId: string,
     fromListId: string
   ) {
-    dragDataRef.current = { cardId, fromListId }
+    cardDragDataRef.current = { cardId, fromListId }
     event.dataTransfer.effectAllowed = "move"
     event.dataTransfer.setData("text/plain", cardId)
+    event.dataTransfer.setData(CARD_DRAG_MIME, cardId)
+  }
+
+  function handleListDragStart(
+    event: React.DragEvent<HTMLElement>,
+    listId: string,
+    originalIndex: number
+  ) {
+    event.stopPropagation()
+    listDragDataRef.current = { listId, originalIndex }
+    event.dataTransfer.effectAllowed = "move"
+    event.dataTransfer.setData(LIST_DRAG_MIME, listId)
+  }
+
+  async function handleListDrop(
+    event: React.DragEvent<HTMLElement>,
+    targetIndex: number
+  ) {
+    if (!event.dataTransfer?.types?.includes(LIST_DRAG_MIME)) {
+      return
+    }
+
+    event.preventDefault()
+
+    const dragData = listDragDataRef.current
+    const draggedListId = event.dataTransfer.getData(LIST_DRAG_MIME)
+    listDragDataRef.current = null
+
+    if (!dragData || !draggedListId || dragData.listId !== draggedListId) {
+      return
+    }
+
+    if (dragData.originalIndex === targetIndex) {
+      return
+    }
+
+    const token = await getToken()
+    if (!token) {
+      return
+    }
+
+    const previousLists = lists.map((list) => ({ ...list }))
+    const workingLists = [...lists]
+    const [removedList] = workingLists.splice(dragData.originalIndex, 1)
+
+    if (!removedList) {
+      return
+    }
+
+    const movedList = { ...removedList }
+    workingLists.splice(targetIndex, 0, movedList)
+
+    const prevList = workingLists[targetIndex - 1]
+    const nextList = workingLists[targetIndex + 1]
+    let newPos: number
+
+    if (prevList && nextList) {
+      newPos = (prevList.pos + nextList.pos) / 2
+    } else if (!prevList && nextList) {
+      newPos = nextList.pos / 2
+    } else if (prevList && !nextList) {
+      newPos = prevList.pos + 16384
+    } else {
+      newPos = 16384
+    }
+
+    movedList.pos = newPos
+    setLists(workingLists)
+
+    try {
+      setError(null)
+      const params = new URLSearchParams({
+        pos: newPos.toString(),
+        key: trelloApiKey,
+        token,
+      })
+
+      const response = await fetch(
+        `https://api.trello.com/1/lists/${dragData.listId}?${params.toString()}`,
+        {
+          method: "PUT",
+        }
+      )
+
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || "Failed to move Trello list")
+      }
+
+      const updatedList = await response.json()
+      setLists((current) =>
+        current.map((list) =>
+          list.id === updatedList.id ? { ...list, pos: updatedList.pos } : list
+        )
+      )
+    } catch (err: any) {
+      console.error("Move list error:", err)
+      setError(err.message || "Failed to move list")
+      setLists(previousLists)
+      await loadBoardData(boardId)
+    }
   }
 
   async function handleCreateList() {
@@ -436,11 +557,33 @@ export default function BoardDetailPage({ params }: PageProps) {
 
       <div className="overflow-x-auto pb-6">
         <div className="flex w-full flex-wrap gap-4 md:flex-nowrap">
-          {lists.map((list) => (
-            <div key={list.id} className="flex w-full flex-shrink-0 flex-col md:w-80">
+          {lists.map((list, index) => (
+            <div
+              key={list.id}
+              className="flex w-full flex-shrink-0 flex-col md:w-80"
+              onDragOver={(event) => {
+                if (event.dataTransfer?.types?.includes(LIST_DRAG_MIME)) {
+                  event.preventDefault()
+                }
+              }}
+              onDrop={(event) => handleListDrop(event, index)}
+            >
               <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between rounded-t-xl border-b border-gray-200 bg-gray-50 px-4 py-3">
-                  <h3 className="font-semibold text-gray-900">{list.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="hidden rounded-md border border-transparent bg-white p-1 text-gray-400 transition-colors hover:border-gray-200 hover:bg-gray-100 hover:text-gray-600 md:inline-flex"
+                      draggable
+                      onDragStart={(event) => handleListDragStart(event, list.id, index)}
+                      onDragEnd={() => {
+                        listDragDataRef.current = null
+                      }}
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </button>
+                    <h3 className="font-semibold text-gray-900">{list.name}</h3>
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500">
                       {cards[list.id]?.length || 0}
@@ -453,17 +596,25 @@ export default function BoardDetailPage({ params }: PageProps) {
 
                 <div
                   className="flex-1 space-y-3 overflow-y-auto px-3 pb-3"
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => handleListDrop(event, list.id)}
+                  onDragOver={(event) => {
+                    if (event.dataTransfer?.types?.includes(CARD_DRAG_MIME)) {
+                      event.preventDefault()
+                    }
+                  }}
+                  onDrop={(event) => handleCardDrop(event, list.id)}
                 >
                   {cards[list.id]?.map((card: any) => (
                     <div
                       key={card.id}
                       draggable
-                      onDragStart={(event) => handleDragStart(event, card.id, list.id)}
+                      onDragStart={(event) => handleCardDragStart(event, card.id, list.id)}
                       className="group relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-blue-200 hover:shadow-md"
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => handleListDrop(event, list.id)}
+                      onDragOver={(event) => {
+                        if (event.dataTransfer?.types?.includes(CARD_DRAG_MIME)) {
+                          event.preventDefault()
+                        }
+                      }}
+                      onDrop={(event) => handleCardDrop(event, list.id)}
                     >
                       {card.labels && card.labels.length > 0 && (
                         <div className="mb-2 flex flex-wrap gap-1">
@@ -560,7 +711,15 @@ export default function BoardDetailPage({ params }: PageProps) {
             </div>
           ))}
 
-          <div className="flex w-80 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white">
+          <div
+            className="flex w-full flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white md:w-80"
+            onDragOver={(event) => {
+              if (event.dataTransfer?.types?.includes(LIST_DRAG_MIME)) {
+                event.preventDefault()
+              }
+            }}
+            onDrop={(event) => handleListDrop(event, lists.length)}
+          >
             <button
               type="button"
               onClick={handleCreateList}
