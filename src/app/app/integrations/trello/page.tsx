@@ -12,6 +12,10 @@ export const dynamic = 'force-dynamic'
 
 const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
 
+type TrelloMode = 'single' | 'multi'
+
+type ConnectionScope = 'user' | 'shared' | null
+
 export default function TrelloIntegrationPage() {
   const router = useRouter()
   const { authenticatedFetch } = useAppBridge()
@@ -23,6 +27,10 @@ export default function TrelloIntegrationPage() {
   const [loading, setLoading] = useState(true)
   const [oauthLoading, setOauthLoading] = useState(false)
   const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
+  const [trelloMode, setTrelloMode] = useState<TrelloMode>('multi')
+  const [canManageConnection, setCanManageConnection] = useState(true)
+  const [connectionScope, setConnectionScope] = useState<ConnectionScope>(null)
+  const [userRole, setUserRole] = useState<'owner' | 'staff'>('owner')
 
   useEffect(() => {
     checkConnection()
@@ -32,16 +40,25 @@ export default function TrelloIntegrationPage() {
     try {
       const response = await authenticatedFetch('/api/trello/status')
       const data = await response.json()
-      
+
+      setTrelloMode(data.mode === 'single' ? 'single' : 'multi')
+      setCanManageConnection(data.canManage !== false)
+      setConnectionScope(data.connection?.scope ?? null)
+      if (data.user?.role === 'staff' || data.user?.role === 'owner') {
+        setUserRole(data.user.role)
+      }
+
       if (data.connected && data.connection) {
         setConnected(true)
-        // Get member info from Trello
         const memberUrl = `https://api.trello.com/1/members/me?key=${trelloApiKey}&token=${data.connection.token}`
         const memberResponse = await fetch(memberUrl)
         if (memberResponse.ok) {
           const member = await memberResponse.json()
           setMemberInfo(member)
         }
+      } else {
+        setConnected(false)
+        setMemberInfo(null)
       }
     } catch (err) {
       console.error('Connection check failed:', err)
@@ -50,13 +67,24 @@ export default function TrelloIntegrationPage() {
     }
   }
 
+  function ensureCanManage(action: string) {
+    if (!canManageConnection) {
+      setError(`Trello connection is managed by the store owner. Please ask them to ${action}.`)
+      return false
+    }
+    return true
+  }
+
   async function handleConnect() {
+    if (!ensureCanManage('connect Trello')) {
+      return
+    }
+
     if (!token) {
       setError('Please enter your Trello token')
       return
     }
 
-    // Validate token format
     if (!token.startsWith('ATTA')) {
       setError('Invalid token format. Trello tokens should start with "ATTA".')
       return
@@ -66,11 +94,10 @@ export default function TrelloIntegrationPage() {
     setError(null)
 
     try {
-      // Direct API call to Trello (no shop domain needed)
       const testUrl = `https://api.trello.com/1/members/me?key=${trelloApiKey}&token=${token}`
-      
+
       const testResponse = await fetch(testUrl)
-      
+
       if (!testResponse.ok) {
         if (testResponse.status === 401) {
           throw new Error('Invalid Trello token. Please check your token and try again.')
@@ -79,8 +106,7 @@ export default function TrelloIntegrationPage() {
       }
 
       const member = await testResponse.json()
-      
-      // Save to our backend (with simple cookie-based shop identification)
+
       const saveResponse = await authenticatedFetch('/api/trello/connect/simple', {
         method: 'POST',
         headers: {
@@ -102,8 +128,7 @@ export default function TrelloIntegrationPage() {
       setConnected(true)
       setMemberInfo(member)
       setToken('')
-      
-      // Refresh connection status
+
       await checkConnection()
     } catch (err: any) {
       setError(err.message || 'Failed to connect to Trello')
@@ -113,6 +138,10 @@ export default function TrelloIntegrationPage() {
   }
 
   async function handleOAuth1() {
+    if (!ensureCanManage('connect Trello')) {
+      return
+    }
+
     setError(null)
     setOauthLoading(true)
     try {
@@ -161,13 +190,21 @@ export default function TrelloIntegrationPage() {
               <Tag className="h-5 w-5 text-blue-600" />
             </span>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-900">Plan: SEO DROME TEAM Premium</h2>
                 <Badge variant="info">$9.99 / month</Badge>
+                <Badge variant={trelloMode === 'single' ? 'warning' : 'success'}>
+                  {trelloMode === 'single' ? 'Single-user mode' : 'Multi-user mode'}
+                </Badge>
               </div>
               <p className="mt-1 text-sm text-gray-600">
                 Single pricing tier that unlocks Trello OAuth 1.0a, manual tokens, kanban automation and webhook syncing.
               </p>
+              {trelloMode === 'single' && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Trello connection is shared across the team. {userRole === 'owner' ? 'You can update it here.' : 'Only the store owner can update this connection.'}
+                </p>
+              )}
             </div>
           </div>
           <div className="rounded-lg bg-white px-4 py-2 shadow-sm">
@@ -198,9 +235,14 @@ export default function TrelloIntegrationPage() {
                 <p className="text-sm text-green-700">
                   Logged in as: {memberInfo.fullName || memberInfo.username}
                 </p>
+                {trelloMode === 'single' && connectionScope === 'shared' && (
+                  <p className="text-xs text-green-700 mt-1">Shared Trello account for all Shopify users.</p>
+                )}
               </div>
             </div>
-            <Badge variant="success">Active</Badge>
+            <Badge variant={connectionScope === 'shared' ? 'info' : 'success'}>
+              {connectionScope === 'shared' ? 'Shared' : 'Personal'}
+            </Badge>
           </div>
         </Card>
       )}
@@ -221,13 +263,13 @@ export default function TrelloIntegrationPage() {
           </p>
           <Button
             onClick={handleOAuth1}
-            disabled={oauthLoading}
+            disabled={oauthLoading || !canManageConnection}
             isLoading={oauthLoading}
             className="w-full"
             variant="outline"
             size="lg"
           >
-            {oauthLoading ? 'Redirecting...' : 'Continue with Trello OAuth 1.0'}
+            {oauthLoading ? 'Redirecting...' : canManageConnection ? 'Continue with Trello OAuth 1.0' : 'Only store owner can connect'}
           </Button>
         </Card>
       )}
@@ -243,7 +285,7 @@ export default function TrelloIntegrationPage() {
               <p className="text-sm text-gray-500">Simple and direct</p>
             </div>
           </div>
-          
+
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="font-semibold text-blue-900 mb-3 text-sm">
               How to get your Trello token:
@@ -283,19 +325,20 @@ export default function TrelloIntegrationPage() {
               onChange={(e) => setToken(e.target.value)}
               placeholder="ATTA..."
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+              disabled={!canManageConnection}
             />
             <p className="mt-1 text-xs text-gray-500">Token should start with "ATTA"</p>
           </div>
 
           <Button
             onClick={handleConnect}
-            disabled={connecting || !token}
+            disabled={connecting || !token || !canManageConnection}
             isLoading={connecting}
             className="w-full"
             variant="primary"
             size="lg"
           >
-            {connecting ? 'Connecting...' : 'Connect Trello'}
+            {connecting ? 'Connecting...' : canManageConnection ? 'Connect Trello' : 'Only store owner can connect'}
           </Button>
         </Card>
       )}
@@ -306,13 +349,39 @@ export default function TrelloIntegrationPage() {
             <div>
               <h3 className="font-semibold text-gray-900 mb-1">Connection Active</h3>
               <p className="text-sm text-gray-600">You can now sync boards, lists, and cards</p>
+              {trelloMode === 'single' && connectionScope === 'shared' && (
+                <p className="text-xs text-gray-500 mt-1">Shared connection managed by the store owner.</p>
+              )}
             </div>
-            <Button
-              onClick={() => router.push('/app/boards')}
-              variant="primary"
-            >
-              Go to Boards
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => router.push('/app/boards')}
+                variant="primary"
+              >
+                Go to Boards
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!ensureCanManage('disconnect Trello')) return
+                  authenticatedFetch('/api/trello/disconnect', { method: 'POST' })
+                    .then(async (res) => {
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}))
+                        throw new Error(data.error || 'Failed to disconnect Trello')
+                      }
+                      await checkConnection()
+                    })
+                    .catch((err: any) => {
+                      console.error('Disconnect error:', err)
+                      setError(err.message || 'Failed to disconnect Trello')
+                    })
+                }}
+                variant="outline"
+                disabled={!canManageConnection}
+              >
+                Disconnect
+              </Button>
+            </div>
           </div>
         </Card>
       )}

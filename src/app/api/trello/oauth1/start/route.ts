@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import OAuth from 'oauth-1.0a'
 import crypto from 'crypto'
 import { requireSessionContext } from '@/lib/session'
+import { getTrelloMode } from '@/lib/trello-connection'
 
 const REQUEST_TOKEN_COOKIE = 'trello_oauth_request_token'
 const REQUEST_SECRET_COOKIE = 'trello_oauth_request_secret'
@@ -27,6 +28,14 @@ function createOAuthClient(apiKey: string, apiSecret: string) {
 export async function GET(request: NextRequest) {
   try {
     const { shop, user } = await requireSessionContext(request)
+    const mode = await getTrelloMode(shop.id)
+
+    if (mode === 'single' && user.role !== 'owner') {
+      return NextResponse.json(
+        { error: 'Only the store owner can manage the shared Trello connection.' },
+        { status: 403 }
+      )
+    }
 
     const apiKey = process.env.TRELLO_API_KEY
     const apiSecret = process.env.TRELLO_API_SECRET

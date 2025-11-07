@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         sub: user.sub,
         sid: user.sid,
+        role: user.role,
       },
     })
   } catch (error: any) {

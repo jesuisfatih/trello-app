@@ -3,6 +3,7 @@ import OAuth from 'oauth-1.0a'
 import crypto from 'crypto'
 import prisma from '@/lib/db'
 import { getShopDomainFromRequest, setShopCookies } from '@/lib/shop'
+import { getTrelloMode } from '@/lib/trello-connection'
 
 const REQUEST_TOKEN_COOKIE = 'trello_oauth_request_token'
 const REQUEST_SECRET_COOKIE = 'trello_oauth_request_secret'
@@ -158,28 +159,47 @@ export async function GET(request: NextRequest) {
       return errorRedirect('Trello account details missing. Authorization cancelled.')
     }
 
-    await prisma.trelloConnection.upsert({
+    const mode = await getTrelloMode(shop.id)
+    const targetUserId = mode === 'single' ? null : user.id
+
+    const existing = await prisma.trelloConnection.findFirst({
       where: {
-        shopId_userId: {
-          shopId: shop.id,
-          userId: user.id,
-        },
-      },
-      create: {
         shopId: shop.id,
-        userId: user.id,
-        trelloMemberId: member.id,
-        token: accessToken,
-        scope,
-        expiresAt: null,
-      },
-      update: {
-        trelloMemberId: member.id,
-        token: accessToken,
-        scope,
-        expiresAt: null,
+        userId: targetUserId,
       },
     })
+
+    if (existing) {
+      await prisma.trelloConnection.update({
+        where: { id: existing.id },
+        data: {
+          trelloMemberId: member.id,
+          token: accessToken,
+          scope,
+          expiresAt: null,
+        },
+      })
+    } else {
+      await prisma.trelloConnection.create({
+        data: {
+          shopId: shop.id,
+          userId: targetUserId,
+          trelloMemberId: member.id,
+          token: accessToken,
+          scope,
+          expiresAt: null,
+        },
+      })
+    }
+
+    if (mode === 'single') {
+      await prisma.trelloConnection.deleteMany({
+        where: {
+          shopId: shop.id,
+          userId: { not: null },
+        },
+      })
+    }
 
     await prisma.eventLog.create({
       data: {

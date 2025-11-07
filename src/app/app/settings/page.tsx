@@ -14,6 +14,8 @@ export const dynamic = 'force-dynamic'
 const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
 const PLAN_DISPLAY_NAME = 'SEO DROME TEAM Premium'
 
+type TrelloMode = 'single' | 'multi'
+
 type PlanKey = 'monthly' | 'annual'
 
 interface BillingPlan {
@@ -69,9 +71,15 @@ export default function SettingsPage() {
   const [notifyEnabled, setNotifyEnabled] = useState(true)
   const [pollInterval, setPollInterval] = useState(30)
   const [notificationError, setNotificationError] = useState<string | null>(null)
+  const [trelloMode, setTrelloMode] = useState<'single' | 'multi'>('multi')
   const [teamLoading, setTeamLoading] = useState(true)
   const [teamError, setTeamError] = useState<string | null>(null)
   const [teamUsers, setTeamUsers] = useState<any[]>([])
+
+  const modeOptions: Array<{ label: string; value: TrelloMode; description: string }> = [
+    { label: 'Single user mode', value: 'single', description: 'Shared Trello account' },
+    { label: 'Multi user mode', value: 'multi', description: 'Each staff member connects individually' },
+  ]
   const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
@@ -166,6 +174,9 @@ export default function SettingsPage() {
       if (typeof data.pollIntervalSeconds === 'number') {
         setPollInterval(data.pollIntervalSeconds)
       }
+      if (data.trelloMode === 'single' || data.trelloMode === 'multi') {
+        setTrelloMode(data.trelloMode)
+      }
     } catch (error) {
       console.warn('Failed to load notification preferences:', error)
     } finally {
@@ -173,7 +184,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function updateNotificationPreferences(preferences: { notify?: boolean; pollIntervalSeconds?: number }) {
+  async function updateNotificationPreferences(preferences: { notify?: boolean; pollIntervalSeconds?: number; trelloMode?: 'single' | 'multi' }) {
     try {
       setNotificationSaving(true)
       setNotificationError(null)
@@ -193,6 +204,9 @@ export default function SettingsPage() {
       }
       if (typeof data.pollIntervalSeconds === 'number') {
         setPollInterval(data.pollIntervalSeconds)
+      }
+      if (data.trelloMode === 'single' || data.trelloMode === 'multi') {
+        setTrelloMode(data.trelloMode)
       }
     } catch (error: any) {
       console.error('Notification settings update failed:', error)
@@ -215,6 +229,9 @@ export default function SettingsPage() {
       }
       const data = await response.json()
       setTeamUsers(Array.isArray(data.users) ? data.users : [])
+      if (data.trelloMode === 'single' || data.trelloMode === 'multi') {
+        setTrelloMode(data.trelloMode)
+      }
     } catch (error: any) {
       console.error('Failed to load Trello users:', error)
       setTeamError(error.message || 'Failed to load team members')
@@ -523,6 +540,34 @@ export default function SettingsPage() {
             </ul>
           </div>
         </div>
+
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-gray-800 mb-2">Connection mode</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            In single-user mode, the store owner’s Trello account is shared with everyone. In multi-user mode, each staff member connects their own Trello account.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {modeOptions.map((option) => {
+              const active = trelloMode === option.value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={notificationSaving || notificationLoading}
+                  onClick={() => updateNotificationPreferences({ trelloMode: option.value })}
+                  className={`flex flex-col items-start rounded-lg border px-4 py-3 text-left transition-colors ${
+                    active
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  } ${notificationSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  <span className="text-sm font-semibold">{option.label}</span>
+                  <span className="text-xs text-gray-500">{option.description}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </Card>
 
       {/* App Info */}
@@ -548,7 +593,11 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Team Trello Activity</h2>
-            <p className="text-sm text-gray-500">See which Shopify staff are connected to Trello and their latest actions.</p>
+            <p className="text-sm text-gray-500">
+              {trelloMode === 'single'
+                ? 'Single user mode is active. The store owner manages the shared Trello connection.'
+                : 'Each staff member can connect their Trello account. Recent activity is shown below.'}
+            </p>
           </div>
           <Button
             variant="outline"
@@ -584,7 +633,10 @@ export default function SettingsPage() {
               ) : (
                 teamUsers.map((user) => {
                   const latestEvent = user.latestEvent
-                  const eventMessage = latestEvent ? `${describeTrelloEvent(latestEvent) ?? 'Activity recorded'} · ${new Date(latestEvent.createdAt).toLocaleString()}` : 'No recent activity'
+                  const describedEvent = latestEvent ? describeTrelloEvent(latestEvent) : null
+                  const eventMessage = latestEvent
+                    ? `${describedEvent || 'Activity recorded'} · ${new Date(latestEvent.createdAt).toLocaleString()}`
+                    : 'No recent activity'
                   return (
                     <tr key={user.id}>
                       <td className="px-4 py-3 text-sm text-gray-700">

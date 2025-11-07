@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { getTrelloMode } from '@/lib/trello-connection';
 
 /**
  * Atlassian OAuth 2.0 Callback Handler
@@ -136,30 +137,49 @@ export async function GET(request: NextRequest) {
       : null;
 
     // Store Trello connection
-    await prisma.trelloConnection.upsert({
+    const mode = await getTrelloMode(shop.id)
+    const targetUserId = mode === 'single' ? null : user.id
+
+    const existing = await prisma.trelloConnection.findFirst({
       where: {
-        shopId_userId: {
-          shopId: shop.id,
-          userId: user.id,
-        },
-      },
-      create: {
         shopId: shop.id,
-        userId: user.id,
-        trelloMemberId: userInfo.account_id || userInfo.email,
-        token: accessToken,
-        refreshToken: refreshToken,
-        scope: tokenData.scope || 'read,write',
-        expiresAt: expiresAt,
+        userId: targetUserId,
       },
-      update: {
-        token: accessToken,
-        refreshToken: refreshToken,
-        trelloMemberId: userInfo.account_id || userInfo.email,
-        scope: tokenData.scope || 'read,write',
-        expiresAt: expiresAt,
-      },
-    });
+    })
+
+    if (existing) {
+      await prisma.trelloConnection.update({
+        where: { id: existing.id },
+        data: {
+          token: accessToken,
+          refreshToken: refreshToken,
+          trelloMemberId: userInfo.account_id || userInfo.email,
+          scope: tokenData.scope || 'read,write',
+          expiresAt: expiresAt,
+        },
+      })
+    } else {
+      await prisma.trelloConnection.create({
+        data: {
+          shopId: shop.id,
+          userId: targetUserId,
+          trelloMemberId: userInfo.account_id || userInfo.email,
+          token: accessToken,
+          refreshToken: refreshToken,
+          scope: tokenData.scope || 'read,write',
+          expiresAt: expiresAt,
+        },
+      })
+    }
+
+    if (mode === 'single') {
+      await prisma.trelloConnection.deleteMany({
+        where: {
+          shopId: shop.id,
+          userId: { not: null },
+        },
+      });
+    }
 
     await prisma.eventLog.create({
       data: {

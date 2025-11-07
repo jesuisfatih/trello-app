@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { requireSessionContext } from '@/lib/session'
+import { getTrelloMode } from '@/lib/trello-connection'
 
 const RECENT_EVENTS_LIMIT = 50
 
 export async function GET(request: NextRequest) {
   try {
     const { shop } = await requireSessionContext(request)
+
+    const mode = await getTrelloMode(shop.id)
 
     const users = await prisma.user.findMany({
       where: { shopId: shop.id },
@@ -69,6 +72,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       users: result,
+      trelloMode: mode,
     })
   } catch (error: any) {
     console.error('List Trello users error:', error)

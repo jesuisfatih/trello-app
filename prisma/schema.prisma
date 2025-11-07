@@ -35,7 +35,7 @@ model User {
   email     String?
   sub       String?   // Shopify user sub from session token
   sid       String?   // Shopify session ID
-  role      String    @default("merchant") // merchant, staff
+  role      String    @default("owner") // owner, staff
   notifyTrelloActivity Boolean @default(true)
 
   shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
@@ -123,6 +123,7 @@ model Settings {
   defaultListId   String?
   mappingOptions  Json?     // Shopify to Trello mapping rules
   notificationOptions Json?
+  trelloMode      String   @default("multi") // single | multi
   
   shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireSessionContext } from '@/lib/session';
+import { getTrelloMode } from '@/lib/trello-connection';
 
 /**
  * SIMPLE Trello connection - No Shopify session token required
@@ -9,6 +10,11 @@ import { requireSessionContext } from '@/lib/session';
 export async function POST(request: NextRequest) {
   try {
     const { shop, user } = await requireSessionContext(request);
+    const mode = await getTrelloMode(shop.id);
+
+    if (mode === 'single' && user.role !== 'owner') {
+      return NextResponse.json({ error: 'Only the store owner can manage the shared Trello connection.' }, { status: 403 });
+    }
 
     const body = await request.json();
     const { token, memberId, memberName } = body;
@@ -17,27 +23,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token and memberId required' }, { status: 400 });
     }
 
-    await prisma.trelloConnection.upsert({
+    const targetUserId = mode === 'single' ? null : user.id;
+
+    const existing = await prisma.trelloConnection.findFirst({
       where: {
-        shopId_userId: {
-          shopId: shop.id,
-          userId: user.id,
-        },
-      },
-      create: {
         shopId: shop.id,
-        userId: user.id,
-        trelloMemberId: memberId,
-        token,
-        scope: 'read,write,account',
-        expiresAt: null,
+        userId: targetUserId,
       },
-      update: {
-        token,
-        trelloMemberId: memberId,
-        scope: 'read,write,account',
-      },
-    });
+    })
+
+    if (existing) {
+      await prisma.trelloConnection.update({
+        where: { id: existing.id },
+        data: {
+          token,
+          trelloMemberId: memberId,
+          scope: 'read,write,account',
+        },
+      })
+    } else {
+      await prisma.trelloConnection.create({
+        data: {
+          shopId: shop.id,
+          userId: targetUserId,
+          trelloMemberId: memberId,
+          token,
+          scope: 'read,write,account',
+          expiresAt: null,
+        },
+      })
+    }
+
+    if (mode === 'single') {
+      await prisma.trelloConnection.deleteMany({
+        where: {
+          shopId: shop.id,
+          userId: { not: null },
+        },
+      });
+    }
 
     await prisma.eventLog.create({
       data: {

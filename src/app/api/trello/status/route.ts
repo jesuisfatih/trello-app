@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/db';
 import { requireSessionContext } from '@/lib/session';
+import { getTrelloMode, getTrelloConnectionForUser } from '@/lib/trello-connection';
 
 /**
  * Check Trello connection status - Simple version
@@ -8,33 +8,28 @@ import { requireSessionContext } from '@/lib/session';
 export async function GET(request: NextRequest) {
   try {
     const { shop, user } = await requireSessionContext(request);
+    const mode = await getTrelloMode(shop.id);
 
-    let connection = await prisma.trelloConnection.findFirst({
-      where: {
-        shopId: shop.id,
-        userId: user.id,
-      },
-    });
-
-    if (!connection) {
-      connection = await prisma.trelloConnection.findFirst({
-        where: {
-          shopId: shop.id,
-          userId: null,
-        },
-      });
-    }
+    const connection = await getTrelloConnectionForUser(shop.id, user.id);
 
     const connected = Boolean(connection);
+    const connectionScope = connection?.userId ? 'user' : 'shared';
+    const canManage = mode === 'multi' || user.role === 'owner';
 
     return NextResponse.json({
       connected,
-      connection: connected
-        ? {
-            memberId: connection!.trelloMemberId,
-            token: connection!.token,
-          }
-        : null,
+      connection: connected ? {
+        memberId: connection!.trelloMemberId,
+        token: connection!.token,
+        scope: connectionScope,
+      } : null,
+      mode,
+      canManage,
+      user: {
+        id: user.id,
+        role: user.role,
+        notify: user.notifyTrelloActivity,
+      },
     });
   } catch (error: any) {
     console.error('Trello connection check error:', error);

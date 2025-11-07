@@ -76,6 +76,7 @@ export async function requireSessionContext(request: NextRequest): Promise<Sessi
     sub: sub ?? null,
     sid: sid ?? null,
     email,
+    role: payload?.account_owner === 'true' ? 'owner' : 'staff',
   }
 
   if (user) {
@@ -84,10 +85,10 @@ export async function requireSessionContext(request: NextRequest): Promise<Sessi
       data,
     })
   } else {
-    // Use sub as stable identifier; if missing fall back to sid to avoid unique conflicts
     const createData = {
       ...data,
       sub: data.sub ?? (data.sid ? `sid:${data.sid}` : undefined),
+      role: data.role,
     }
 
     user = await prisma.user.create({ data: createData })

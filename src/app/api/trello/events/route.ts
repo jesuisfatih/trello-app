@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     const settings = await prisma.settings.findUnique({
       where: { shopId: shop.id },
-      select: { notificationOptions: true },
+      select: { notificationOptions: true, trelloMode: true },
     })
 
     const options = (settings?.notificationOptions as any) || {}
@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       preferences: {
         notify: user.notifyTrelloActivity,
         pollIntervalSeconds,
+        trelloMode: settings?.trelloMode === 'single' ? 'single' : 'multi',
       },
     })
   } catch (error: any) {

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const settings = await prisma.settings.findUnique({
       where: { shopId: shop.id },
-      select: { notificationOptions: true },
+      select: { notificationOptions: true, trelloMode: true },
     })
 
     const options = (settings?.notificationOptions as any) || {}
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       notify: user.notifyTrelloActivity,
       pollIntervalSeconds,
+      trelloMode: settings?.trelloMode === 'single' ? 'single' : 'multi',
     })
   } catch (error: any) {
     console.error('Get notification preferences error:', error)
@@ -51,6 +52,15 @@ export async function PUT(request: NextRequest) {
       pollIntervalSeconds = sanitizeInterval(body.pollIntervalSeconds)
     }
 
+    let trelloMode: 'single' | 'multi' | undefined
+    if (body.trelloMode === 'single' || body.trelloMode === 'multi') {
+      trelloMode = body.trelloMode
+    }
+
+    const existingSettings = await prisma.settings.findUnique({
+      where: { shopId: shop.id },
+    })
+
     if (Object.keys(updates).length > 0) {
       await prisma.user.update({
         where: { id: user.id },
@@ -58,21 +68,52 @@ export async function PUT(request: NextRequest) {
       })
     }
 
+    const settingsUpdate: any = {}
+    const notificationOptions = (existingSettings?.notificationOptions as any) || {}
+
     if (pollIntervalSeconds !== undefined) {
+      settingsUpdate.notificationOptions = {
+        ...notificationOptions,
+        pollIntervalSeconds,
+      }
+    }
+
+    if (trelloMode) {
+      settingsUpdate.trelloMode = trelloMode
+    }
+
+    if (Object.keys(settingsUpdate).length > 0) {
       await prisma.settings.upsert({
         where: { shopId: shop.id },
-        update: {
-          notificationOptions: {
-            pollIntervalSeconds,
-          },
-        },
+        update: settingsUpdate,
         create: {
           shopId: shop.id,
-          notificationOptions: {
-            pollIntervalSeconds,
-          },
+          notificationOptions: settingsUpdate.notificationOptions ?? notificationOptions,
+          trelloMode: settingsUpdate.trelloMode ?? existingSettings?.trelloMode ?? 'multi',
         },
       })
+    }
+
+    if (trelloMode === 'single') {
+      const preferredConnection = await prisma.trelloConnection.findFirst({
+        where: { shopId: shop.id },
+        orderBy: { updatedAt: 'desc' },
+      })
+
+      if (preferredConnection) {
+        await prisma.trelloConnection.update({
+          where: { id: preferredConnection.id },
+          data: { userId: null },
+        })
+
+        await prisma.trelloConnection.deleteMany({
+          where: {
+            shopId: shop.id,
+            userId: { not: null },
+            id: { not: preferredConnection.id },
+          },
+        })
+      }
     }
 
     const updatedUser = await prisma.user.findUnique({
@@ -82,7 +123,7 @@ export async function PUT(request: NextRequest) {
 
     const updatedSettings = await prisma.settings.findUnique({
       where: { shopId: shop.id },
-      select: { notificationOptions: true },
+      select: { notificationOptions: true, trelloMode: true },
     })
 
     const nextOptions = (updatedSettings?.notificationOptions as any) || {}
@@ -90,6 +131,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       notify: updatedUser?.notifyTrelloActivity ?? true,
       pollIntervalSeconds: sanitizeInterval(nextOptions.pollIntervalSeconds),
+      trelloMode: updatedSettings?.trelloMode === 'single' ? 'single' : 'multi',
     })
   } catch (error: any) {
     console.error('Update notification preferences error:', error)
