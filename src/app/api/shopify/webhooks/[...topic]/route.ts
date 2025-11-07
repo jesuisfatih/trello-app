@@ -16,13 +16,24 @@ function verifyShopifyWebhook(body: string, hmac: string): boolean {
 }
 
 async function handleAppUninstalled(shop: string, payload: any) {
-  await prisma.shop.update({
+  const shopRecord = await prisma.shop.findUnique({
     where: { domain: shop },
-    data: {
-      status: 'uninstalled',
-      uninstalledAt: new Date(),
-    },
-  });
+    select: { id: true },
+  })
+
+  if (shopRecord) {
+    await prisma.$transaction([
+      prisma.trelloConnection.deleteMany({ where: { shopId: shopRecord.id } }),
+      prisma.shop.update({
+        where: { domain: shop },
+        data: {
+          status: 'uninstalled',
+          uninstalledAt: new Date(),
+          accessTokenOffline: null,
+        },
+      }),
+    ])
+  }
 
   await prisma.eventLog.create({
     data: {
