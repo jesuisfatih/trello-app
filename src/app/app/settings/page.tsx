@@ -8,11 +8,13 @@ import { Button } from '@/ui/components/Card'
 
 export const dynamic = 'force-dynamic'
 
+const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
+
 export default function SettingsPage() {
   const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(true)
   const [memberInfo, setMemberInfo] = useState<any>(null)
-  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
     checkConnection()
@@ -27,13 +29,11 @@ export default function SettingsPage() {
         setConnected(true)
         
         // Get member info
-        if (trelloApiKey) {
-          const memberUrl = `https://api.trello.com/1/members/me?key=${trelloApiKey}&token=${data.connection.token}`
-          const memberResponse = await fetch(memberUrl)
-          if (memberResponse.ok) {
-            const member = await memberResponse.json()
-            setMemberInfo(member)
-          }
+        const memberUrl = `https://api.trello.com/1/members/me?key=${trelloApiKey}&token=${data.connection.token}`
+        const memberResponse = await fetch(memberUrl)
+        if (memberResponse.ok) {
+          const member = await memberResponse.json()
+          setMemberInfo(member)
         }
       }
     } catch (err) {

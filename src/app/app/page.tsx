@@ -9,11 +9,13 @@ import { Badge } from '@/ui/components/Card'
 
 export const dynamic = 'force-dynamic'
 
+const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
+
 export default function Dashboard() {
   const [status, setStatus] = useState({ shopify: true, trello: false })
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ boards: 0, mappings: 0, eventsToday: 0 })
-  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
     checkConnections()
@@ -31,7 +33,7 @@ export default function Dashboard() {
       })
 
       // If connected, fetch stats
-      if (trelloData.connected && trelloData.connection && trelloApiKey) {
+      if (trelloData.connected && trelloData.connection) {
         const token = trelloData.connection.token
         
         // Get boards count

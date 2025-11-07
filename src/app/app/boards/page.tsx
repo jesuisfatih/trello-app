@@ -5,11 +5,13 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
+const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
+
 export default function BoardsPage() {
   const [boards, setBoards] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [connected, setConnected] = useState(false)
-  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
     checkTrelloConnection()
@@ -37,9 +39,6 @@ export default function BoardsPage() {
 
   async function fetchBoards(token: string) {
     try {
-      if (!trelloApiKey) {
-        return
-      }
       const boardsUrl = `https://api.trello.com/1/members/me/boards?key=${trelloApiKey}&token=${token}`
       const response = await fetch(boardsUrl)
       

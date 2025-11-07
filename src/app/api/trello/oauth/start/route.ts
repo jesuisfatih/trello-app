@@ -1,15 +1,10 @@
-import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { GET as startOAuth1 } from '../../oauth1/start/route'
 
 /**
  * Atlassian OAuth 2.0 Start Handler
  * Initiates the OAuth 2.0 authorization code flow
  */
-export async function GET() {
-  return NextResponse.json(
-    {
-      error:
-        'Trello OAuth 2.0 (3LO) is not yet available. Please use OAuth 1.0a or manual token connection.',
-    },
-    { status: 501 }
-  )
+export async function GET(request: NextRequest) {
+  return startOAuth1(request)
 }

@@ -9,6 +9,8 @@ import { Badge } from '@/ui/components/Card'
 
 export const dynamic = 'force-dynamic'
 
+const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
+
 export default function TrelloIntegrationPage() {
   const router = useRouter()
   const [token, setToken] = useState('')
@@ -18,7 +20,7 @@ export default function TrelloIntegrationPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [oauthLoading, setOauthLoading] = useState(false)
-  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
     checkConnection()
@@ -26,11 +28,6 @@ export default function TrelloIntegrationPage() {
 
   async function checkConnection() {
     try {
-      if (!trelloApiKey) {
-        setLoading(false)
-        return
-      }
-
       const response = await fetch('/api/trello/status')
       const data = await response.json()
       
@@ -54,11 +51,6 @@ export default function TrelloIntegrationPage() {
   async function handleConnect() {
     if (!token) {
       setError('Please enter your Trello token')
-      return
-    }
-
-    if (!trelloApiKey) {
-      setError('Trello API key is not configured. Please contact support.')
       return
     }
 
@@ -247,7 +239,7 @@ export default function TrelloIntegrationPage() {
               <li>
                 API Key:{' '}
                 <code className="bg-white px-2 py-1 rounded text-xs font-mono">
-                  {trelloApiKey || 'Missing NEXT_PUBLIC_TRELLO_API_KEY'}
+                  {trelloApiKey}
                 </code>
               </li>
               <li>Click "Allow" to grant permissions</li>

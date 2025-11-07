@@ -13,6 +13,8 @@ interface PageProps {
   params: Promise<{ boardId: string }>
 }
 
+const FALLBACK_TRELLO_API_KEY = '700a7218afc6cb86683668584a52645b'
+
 export default function BoardDetailPage({ params }: PageProps) {
   const [boardId, setBoardId] = useState<string>('')
   const [board, setBoard] = useState<any>(null)
@@ -21,7 +23,7 @@ export default function BoardDetailPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || ''
+  const trelloApiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY || FALLBACK_TRELLO_API_KEY
 
   useEffect(() => {
     params.then(p => {
@@ -44,10 +46,6 @@ export default function BoardDetailPage({ params }: PageProps) {
 
       setConnected(true)
       const token = statusData.connection.token
-
-      if (!trelloApiKey) {
-        throw new Error('Trello API key is not configured.')
-      }
 
       // Fetch board details
       const boardUrl = `https://api.trello.com/1/boards/${id}?key=${trelloApiKey}&token=${token}&fields=name,desc,prefs,url`
