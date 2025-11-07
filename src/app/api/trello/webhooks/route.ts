@@ -35,8 +35,9 @@ export async function POST(request: NextRequest) {
     await prisma.eventLog.create({
       data: {
         shopId: webhook.shopId,
+        userId: webhook.userId ?? undefined,
         source: 'trello',
-        type: `webhook_${validatedData.action.type}`,
+        type: 'trello_activity',
         payload: validatedData,
         status: 'success',
       },

@@ -40,6 +40,7 @@ model User {
   shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   trelloConnections TrelloConnection[]
   trelloWebhooks    TrelloWebhook[]
+  eventLogs        EventLog[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -97,6 +98,7 @@ model TrelloWebhook {
 model EventLog {
   id          String    @id @default(cuid())
   shopId      String?
+  userId      String?
   source      String    // shopify, trello, system
   type        String    // webhook, api_call, error, etc.
   payload     Json
@@ -104,12 +106,14 @@ model EventLog {
   errorMsg    String?
   
   shop        Shop?     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   createdAt   DateTime  @default(now())
 
   @@index([shopId, createdAt])
   @@index([source, type])
   @@index([createdAt])
+  @@index([userId])
 }
 
 model Settings {

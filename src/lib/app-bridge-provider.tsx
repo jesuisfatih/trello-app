@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { decodeHostParam, extractShopFromHost, normalizeShopDomain } from '@/lib/shop';
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
@@ -45,6 +45,7 @@ interface AppBridgeContextType {
   getSessionToken: () => Promise<string | null>;
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>;
   showToast: (message: string, isError?: boolean) => void;
+  describeTrelloEvent: (event: any) => string | null;
 }
 
 const AppBridgeContext = createContext<AppBridgeContextType | null>(null);
@@ -54,6 +55,7 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const latestEventTimestampRef = useRef<number>(0);
 
   useEffect(() => {
     const initAppBridge = async () => {
@@ -211,6 +213,81 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
     initAppBridge();
   }, []);
 
+  useEffect(() => {
+    if (error) {
+      return;
+    }
+
+    let intervalId: any;
+    let cancelled = false;
+
+    const fetchEvents = async () => {
+      try {
+        const token = await getToken();
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch('/api/trello/events', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data.events)) {
+          return;
+        }
+
+        if (latestEventTimestampRef.current === 0 && data.events.length > 0) {
+          latestEventTimestampRef.current = new Date(data.events[0].createdAt).getTime();
+          return;
+        }
+
+        const newEvents = data.events
+          .filter((event: any) => {
+            const ts = new Date(event.createdAt).getTime();
+            return ts > latestEventTimestampRef.current;
+          })
+          .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+        if (newEvents.length > 0) {
+          latestEventTimestampRef.current = new Date(newEvents[newEvents.length - 1].createdAt).getTime();
+
+          newEvents.forEach((event: any) => {
+            const message = describeTrelloEvent(event);
+            if (message) {
+              showToast(message);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch Trello events:', err);
+      }
+    };
+
+    const start = async () => {
+      if (cancelled) return;
+      await fetchEvents();
+      if (cancelled) return;
+      intervalId = setInterval(fetchEvents, 30000);
+    };
+
+    start();
+
+    return () => {
+      cancelled = true;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
+
   const getToken = async (): Promise<string | null> => {
     if (typeof window !== 'undefined') {
       const shopifyGlobal = (window as any).shopify;
@@ -270,6 +347,33 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  function describeTrelloEvent(event: any): string | null {
+    const action = event?.payload?.action;
+    if (!action) {
+      return null;
+    }
+
+    const cardName = action.data?.card?.name || 'Card';
+    const listName = action.data?.list?.name || action.data?.listAfter?.name;
+
+    switch (action.type) {
+      case 'createCard':
+        return `🆕 Trello: "${cardName}" card created${listName ? ` in ${listName}` : ''}`;
+      case 'updateCard': {
+        if (action.data?.listBefore && action.data?.listAfter) {
+          return `↔️ Trello: "${cardName}" moved from ${action.data.listBefore.name} to ${action.data.listAfter.name}`;
+        }
+        return `✏️ Trello: "${cardName}" was updated`;
+      }
+      case 'deleteCard':
+        return `🗑️ Trello: "${cardName}" card deleted`;
+      case 'commentCard':
+        return `💬 Trello: New comment on "${cardName}"`;
+      default:
+        return null;
+    }
+  }
+
   return (
     <AppBridgeContext.Provider
       value={{
@@ -280,6 +384,7 @@ export function AppBridgeProvider({ children }: { children: ReactNode }) {
         getSessionToken: getToken,
         authenticatedFetch,
         showToast,
+        describeTrelloEvent,
       }}
     >
       {children}
