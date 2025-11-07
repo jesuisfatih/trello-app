@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Key, CheckCircle2, XCircle, ExternalLink, ShieldCheck, Lock } from 'lucide-react'
+import { Key, CheckCircle2, XCircle, ExternalLink, ShieldCheck, Lock, Tag } from 'lucide-react'
 import { Card } from '@/ui/components/Card'
 import { Button } from '@/ui/components/Card'
 import { Badge } from '@/ui/components/Card'
@@ -151,6 +151,29 @@ export default function TrelloIntegrationPage() {
         <h1 className="text-3xl font-bold text-gray-900">Connect to Trello</h1>
         <p className="text-gray-600">Enter your Trello token to sync boards, lists, and cards</p>
       </div>
+
+      <Card className="border-blue-200 bg-blue-50/60">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+              <Tag className="h-5 w-5 text-blue-600" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900">Plan: SEO DROME TEAM Premium</h2>
+                <Badge variant="info">$9.99 / month</Badge>
+              </div>
+              <p className="mt-1 text-sm text-gray-600">
+                Single pricing tier that unlocks Trello OAuth 1.0a, manual tokens, kanban automation and webhook syncing.
+              </p>
+            </div>
+          </div>
+          <div className="rounded-lg bg-white px-4 py-2 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Billed via Shopify</p>
+            <p className="text-lg font-semibold text-gray-900">$9.99 USD</p>
+          </div>
+        </div>
+      </Card>
 
       {/* Error Message */}
       {error && (

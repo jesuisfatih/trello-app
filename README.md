@@ -381,4 +381,6 @@ Proprietary - All rights reserved
 
 ## Support
 
-For issues and questions, contact support or open an issue in the repository.
+- Email: [support@seodrometeam.com](mailto:support@seodrometeam.com)
+- Status page & updates: <https://status.seodrometeam.com>
+- Documentation: [`docs/production-readiness.md`](docs/production-readiness.md) and [`docs/shopify-review-checklist.md`](docs/shopify-review-checklist.md)
