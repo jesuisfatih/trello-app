@@ -49,13 +49,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     <div className="flex flex-col flex-grow bg-white/95 border-r border-gray-100 shadow-[inset_-1px_0_0_rgba(15,23,42,0.08)] pt-6 pb-6 overflow-y-auto backdrop-blur">
                       {/* Logo */}
                       <div className="flex items-center flex-shrink-0 px-4 mb-8">
-                        <Image 
-                          src="/branding/logo-word.svg" 
-                          alt="SEO Drome Team" 
-                          width={160}
-                          height={40}
-                          priority
-                        />
+                        <span className="text-xl font-bold tracking-tight text-gray-900">
+                          SEODROME TEAM
+                        </span>
                       </div>
 
                       {/* Navigation */}
@@ -110,12 +106,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                       </div>
                       <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto bg-white">
                         <div className="flex items-center flex-shrink-0 px-4 mb-8">
-                          <Image 
-                            src="/branding/logo-word.svg" 
-                            alt="SEO Drome Team" 
-                            width={150}
-                            height={36}
-                          />
+                          <span className="text-lg font-bold tracking-tight text-gray-900">
+                            SEODROME TEAM
+                          </span>
                         </div>
                         <nav className="px-3 space-y-1">
                           {navigation.map((item) => {
@@ -162,13 +155,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     </button>
                     <div className="flex-1 px-4 flex justify-between items-center">
                       <div className="flex-1 flex items-center gap-2">
-                        <Image 
-                          src="/branding/logo-mark.svg" 
-                          alt="SEO Drome Mark" 
-                          width={28}
-                          height={28}
-                          className="hidden sm:block"
-                        />
+                        <span className="hidden sm:inline-flex items-center justify-center rounded-full bg-blue-600 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-white">
+                          SEODROME
+                        </span>
                         <h1 className="text-lg font-semibold text-gray-900">
                           {navigation.find(item => 
                             pathname === item.href || 

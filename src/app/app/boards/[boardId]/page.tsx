@@ -248,11 +248,19 @@ export default function BoardDetailPage({ params }: PageProps) {
     }
   }
 
-  async function handleListDrop(targetListId: string) {
+  async function handleListDrop(
+    event: React.DragEvent<HTMLDivElement>,
+    targetListId: string
+  ) {
+    event.preventDefault()
+
     const dragData = dragDataRef.current
     dragDataRef.current = null
 
-    if (!dragData) {
+    const transferredCardId = event.dataTransfer.getData("text/plain")
+    const cardId = transferredCardId || dragData?.cardId
+
+    if (!dragData || !cardId) {
       return
     }
 
@@ -271,7 +279,7 @@ export default function BoardDetailPage({ params }: PageProps) {
       })
 
       const response = await fetch(
-        `https://api.trello.com/1/cards/${dragData.cardId}?${params.toString()}`,
+        `https://api.trello.com/1/cards/${cardId}?${params.toString()}`,
         {
           method: "PUT",
         }
@@ -286,7 +294,7 @@ export default function BoardDetailPage({ params }: PageProps) {
       setCards((prev) => {
         const updated = { ...prev }
         updated[dragData.fromListId] = (updated[dragData.fromListId] || []).filter(
-          (card) => card.id !== dragData.cardId
+          (card) => card.id !== cardId
         )
         updated[targetListId] = [...(updated[targetListId] || []), movedCard]
         return updated
@@ -298,8 +306,14 @@ export default function BoardDetailPage({ params }: PageProps) {
     }
   }
 
-  function handleDragStart(cardId: string, fromListId: string) {
+  function handleDragStart(
+    event: React.DragEvent<HTMLDivElement>,
+    cardId: string,
+    fromListId: string
+  ) {
     dragDataRef.current = { cardId, fromListId }
+    event.dataTransfer.effectAllowed = "move"
+    event.dataTransfer.setData("text/plain", cardId)
   }
 
   async function handleCreateList() {
@@ -440,13 +454,13 @@ export default function BoardDetailPage({ params }: PageProps) {
                 <div
                   className="flex-1 space-y-3 overflow-y-auto px-3 pb-3"
                   onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => handleListDrop(list.id)}
+                  onDrop={(event) => handleListDrop(event, list.id)}
                 >
                   {cards[list.id]?.map((card: any) => (
                     <div
                       key={card.id}
                       draggable
-                      onDragStart={() => handleDragStart(card.id, list.id)}
+                      onDragStart={(event) => handleDragStart(event, card.id, list.id)}
                       className="group relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-blue-200 hover:shadow-md"
                     >
                       {card.labels && card.labels.length > 0 && (
